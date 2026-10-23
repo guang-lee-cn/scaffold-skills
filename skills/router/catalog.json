@@ -1,0 +1,82 @@
+{
+  "version": "0.2",
+  "说明": "L0 Router 唯一数据源——全量技能目录。AI 按阶段查决策表后从本表按名调用。vendor 条目为按需下载，不在版本库中。。catalog 外目录（如 agent-skills 外部仓库）= 未编目未启用，不参与路由；如启用须登记本表并过正交性核对。superpowers 为可选 vendor（默认未启用）。",
+  "axes": {
+    "阶段轴": "sdlc/R|S|A|I|V|D|P —— 回答『什么时候做』",
+    "来源轴": "vendor/|agent-skills/ —— 回答『自研 or 第三方』",
+    "领域轴": "domains/ —— 回答『什么技术域』"
+  },
+  "catalog": [
+    {
+      "name": "sdlc",
+      "layer": "通用",
+      "轴": "阶段",
+      "职责": "需求→交付 7 段阶段组织（R/S/A/I/V/D/P），含 _shared 证据分级·交接协议·风险模式库",
+      "触发词": "阶段/需求挖掘/规范对齐/架构设计/实现/验证/交付/复盘/追溯"
+    },
+    {
+      "name": "pj-core",
+      "layer": "通用",
+      "轴": "元层",
+      "职责": "协作流程/行为约束(Iron Law)/问题四分类/复盘九段式/价值流/文档模板/WSL桥接",
+      "触发词": "协作/门禁/日报/复盘/问题/落盘/提交/归档/纪律"
+    },
+    {
+      "name": "iso",
+      "layer": "通用",
+      "轴": "方法内核",
+      "职责": "项目阶段工作流（Insight/Strategy/Operation，Heavy+Light）",
+      "触发词": "开始ISO/做架构/设计接口/实现子系统/集成测试/E2E"
+    },
+    {
+      "name": "ai-code-review",
+      "layer": "通用",
+      "轴": "阶段(V)",
+      "职责": "多AI审查流水线（实现+2审查+校验Oracle+工具+状态机）",
+      "触发词": "代码审查/对弈复核/审查收口/校验"
+    },
+    {
+      "name": "router",
+      "layer": "通用",
+      "轴": "元层",
+      "职责": "L0 阶段路由（本文件）",
+      "触发词": "路由/阶段决策/接手"
+    },
+    {
+      "name": "superpowers:test-driven-development",
+      "轴": "来源",
+      "职责": "TDD红绿流程（Iron Law：无失败测试不许写生产代码）",
+      "触发词": "TDD/测试优先/红绿",
+      "依赖": "按需下载：git clone https://github.com/obra/superpowers.git vendor/superpowers && git -C vendor/superpowers checkout 8ca22dba9a94f28898bbce59f2537ff4d87c747d（详见 ../sdlc/_shared/vendor-recovery.md）",
+      "按需下载": true,
+      "层": "vendor"
+    },
+    {
+      "name": "superpowers:systematic-debugging",
+      "轴": "来源",
+      "职责": "调试行为门禁（无根因调查不许提修复/3失败质疑架构）",
+      "触发词": "故障/调试/定位/复现/死锁/泄漏",
+      "依赖": "按需下载：git clone https://github.com/obra/superpowers.git vendor/superpowers && git -C vendor/superpowers checkout 8ca22dba9a94f28898bbce59f2537ff4d87c747d（详见 ../sdlc/_shared/vendor-recovery.md）",
+      "按需下载": true,
+      "层": "vendor"
+    },
+    {
+      "name": "superpowers:writing-plans",
+      "轴": "来源",
+      "职责": "任务级计划（给陌生工程师的可执行步骤）",
+      "触发词": "计划/拆分/任务分解",
+      "依赖": "按需下载：git clone https://github.com/obra/superpowers.git vendor/superpowers && git -C vendor/superpowers checkout 8ca22dba9a94f28898bbce59f2537ff4d87c747d（详见 ../sdlc/_shared/vendor-recovery.md）",
+      "按需下载": true,
+      "层": "vendor"
+    },
+    {
+      "name": "superpowers:verification-before-completion",
+      "轴": "来源",
+      "职责": "完成声明措辞门禁（无新鲜RUN证据不许声称完成）",
+      "触发词": "声称完成/验证/收口",
+      "依赖": "按需下载：git clone https://github.com/obra/superpowers.git vendor/superpowers && git -C vendor/superpowers checkout 8ca22dba9a94f28898bbce59f2537ff4d87c747d（详见 ../sdlc/_shared/vendor-recovery.md）",
+      "按需下载": true,
+      "层": "vendor"
+    }
+  ]
+}

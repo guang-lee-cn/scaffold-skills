@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="760" viewBox="0 0 1280 760" role="img" aria-labelledby="t d">
+  <!-- ===== 复制此骨架：改 viewBox、替换示例内容。颜色一律来自 style-tokens.md ===== -->
+  <title id="t">图标题（示例：Notion 彩色分区骨架）</title>
+  <desc id="d">一句话说明图意。色相绑通路：RPC 蓝 / pubsub 青 / 平台紫 / 共享节点中性 / 通信域黄绿。</desc>
+
+  <defs>
+    <!-- 箭头：按色相各备一个；refX=9 在线末，orient 自动转方向 -->
+    <marker id="a-blue"  viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2383E2"/></marker>
+    <marker id="a-teal"  viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2F9288"/></marker>
+    <marker id="a-purple" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#7C5CC4"/></marker>
+    <marker id="a-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#32865A"/></marker>
+    <marker id="a-gray"  viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#5A6B7D"/></marker>
+  </defs>
+
+  <style>
+    /* 字体：中文 PingFang/微软雅黑/Noto CJK；只用 400/600 */
+    .t{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",Arial,sans-serif;}
+    .tt{font-size:19px;font-weight:600;fill:#243447;}   /* 图大标题 */
+    .bar{font-size:15px;font-weight:600;fill:#fff;}     /* 分区标题栏白字 */
+    .pt{font-size:13.5px;font-weight:600;}             /* 分区标题（深字，fill 随角色） */
+    .pl{font-size:13px;font-weight:600;fill:#58697B;}  /* 层标签（次色） */
+    .ct{font-size:12.5px;font-weight:600;}             /* 卡片标题 */
+    .cc{font-size:12.5px;fill:#243447;}               /* 卡片正文 */
+    .note{font-size:11.5px;fill:#78869A;}             /* 注释/标号 */
+    .ep{font-size:13px;font-weight:600;fill:#fff;}     /* 实色端点白字 */
+    /* 连线：实线=数据流；虚线仅配置注入/可缩减；粗线=汇聚 */
+    .l-blue{fill:none;stroke:#2383E2;stroke-width:1.6;}
+    .l-teal{fill:none;stroke:#2F9288;stroke-width:1.6;}
+    .l-purple{fill:none;stroke:#7C5CC4;stroke-width:1.5;}
+    .l-gray{fill:none;stroke:#5A6B7D;stroke-width:1.4;}
+    .l-fan{fill:none;stroke:#32865A;stroke-width:2.2;}
+    .dash{stroke-dasharray:6 3;}
+    .sep{stroke:#E8ECF1;stroke-width:1;}
+  </style>
+
+  <rect width="1280" height="760" fill="#FFFFFF"/>
+  <text class="t tt" x="640" y="38" text-anchor="middle">图标题（示例）</text>
+
+  <!-- 平台配置：紫色 + 虚线（注入，非运行时） -->
+  <rect x="200" y="70" width="880" height="78" rx="13" fill="#F7F4FB" stroke="#B5A8CC" stroke-width="1.6" stroke-dasharray="6 3"/>
+  <text class="t pt" x="640" y="96" text-anchor="middle" fill="#5B4486">平台 / 配置（紫，虚线注入，创建期消费）</text>
+  <text class="t note" x="640" y="122" text-anchor="middle">Domain ID · discovery · QoS profile</text>
+
+  <!-- 蓝色分区（RPC）：浅底 + 同色系边 + 深字标题；边随节点（框蓝线蓝） -->
+  <rect x="40" y="196" width="372" height="190" rx="13" fill="#EDF4FC" stroke="#789AC1" stroke-width="1.8"/>
+  <text class="t pt" x="226" y="222" text-anchor="middle" fill="#31567F">RPC 分区（蓝）</text>
+  <rect x="58" y="236" width="336" height="132" rx="9" fill="#FFFFFF" stroke="#A8C2DD" stroke-width="1.2"/>
+  <rect x="74" y="252" width="118" height="46" rx="6" fill="#2383E2"/>
+  <text class="t ep" x="133" y="275" text-anchor="middle" dominant-baseline="central">Requester</text>
+  <rect x="212" y="252" width="166" height="46" rx="6" fill="#FFFFFF" stroke="#A8C2DD" stroke-width="1.2"/>
+  <text class="t cc" x="295" y="280" text-anchor="middle" dominant-baseline="central">白底卡片（DataWriter）</text>
+  <text class="t note" x="74" y="336">内卡片统一白底 + 同色系浅边</text>
+
+  <!-- 青色分区（pubsub） -->
+  <rect x="454" y="196" width="372" height="190" rx="13" fill="#E7F4F2" stroke="#7FB3AD" stroke-width="1.8"/>
+  <text class="t pt" x="640" y="222" text-anchor="middle" fill="#2E7A72">pubsub 分区（青）</text>
+  <rect x="472" y="236" width="336" height="132" rx="9" fill="#FFFFFF" stroke="#A9CEC9" stroke-width="1.2"/>
+  <rect x="490" y="252" width="118" height="46" rx="6" fill="#2F9288"/>
+  <text class="t ep" x="549" y="275" text-anchor="middle" dominant-baseline="central">端点</text>
+  <rect x="628" y="252" width="164" height="46" rx="6" fill="#FFFFFF" stroke="#A9CEC9" stroke-width="1.2"/>
+  <text class="t cc" x="710" y="280" text-anchor="middle" dominant-baseline="central">白底卡片（DataReader）</text>
+  <text class="t note" x="490" y="336">pubsub 与 RPC 色相区分，不共用蓝</text>
+
+  <!-- 共享节点（Context）：中性白底灰边 + 双色小色条，不占色相 -->
+  <rect x="868" y="196" width="372" height="190" rx="13" fill="#FFFFFF" stroke="#D8DEE6" stroke-width="1.8"/>
+  <text class="t pt" x="1054" y="222" text-anchor="middle" fill="#58697B">共享节点（Context，中性）</text>
+  <rect x="886" y="236" width="336" height="132" rx="9" fill="#FFFFFF" stroke="#D8DEE6" stroke-width="1.2"/>
+  <rect x="898" y="252" width="10" height="30" fill="#2383E2"/>
+  <rect x="912" y="252" width="10" height="30" fill="#2F9288"/>
+  <text class="t cc" x="1054" y="290" text-anchor="middle" dominant-baseline="central">白底灰边 + 蓝/青色条（双通路经过）</text>
+  <text class="t note" x="902" y="336">共享节点不占色相；通路色以彩色线穿过</text>
+
+  <!-- 平台 → 各分区：灰虚线（配置注入） -->
+  <path class="l-gray dash" d="M640,148 V172 M226,172 V196 M640,172 H1054 M226,172 H1054"/>
+  <path class="l-gray dash" d="M226,172 V196" marker-end="url(#a-gray)"/>
+  <path class="l-gray dash" d="M640,172 V196" marker-end="url(#a-gray)"/>
+  <path class="l-gray dash" d="M1054,172 V196" marker-end="url(#a-gray)"/>
+
+  <!-- 黄绿域（通信域） -->
+  <rect x="40" y="440" width="1200" height="230" rx="15" fill="#EEF6DC" stroke="#9DB86B" stroke-width="2"/>
+  <text class="t pt" x="640" y="468" text-anchor="middle" fill="#5D7039">通信域（黄绿）：Domain / 传输</text>
+  <rect x="64" y="486" width="566" height="156" rx="10" fill="#FFFFFF" stroke="#A8C2DD" stroke-width="1.4"/>
+  <text class="t ct" x="347" y="514" text-anchor="middle" fill="#31567F">RPC 通道（白底蓝边）</text>
+  <rect x="630" y="486" width="566" height="156" rx="10" fill="#FFFFFF" stroke="#A9CEC9" stroke-width="1.4"/>
+  <text class="t ct" x="913" y="514" text-anchor="middle" fill="#2E7A72">pubsub 通道（白底青边）</text>
+  <!-- 汇聚：绿粗线 -->
+  <path class="l-fan" d="M226,386 V420 H347 V440" marker-end="url(#a-green)"/>
+  <path class="l-fan" d="M640,386 V440" marker-end="url(#a-green)"/>
+  <!-- 数据流标号：全实线，方向用箭头/文字 -->
+  <path class="l-blue" d="M150,560 H540" marker-end="url(#a-blue)"/>
+  <text class="t note" x="345" y="552" text-anchor="middle">① Request（蓝实线）</text>
+  <path class="l-teal" d="M740,590 H1080" marker-end="url(#a-teal)"/>
+  <text class="t note" x="910" y="614" text-anchor="middle">② Topic（青实线，可多对多）</text>
+</svg>

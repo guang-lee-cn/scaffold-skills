@@ -1,0 +1,13 @@
+# 门禁配置（Scaffold 数据飞轮-采集环）
+# 格式：name|执行命令[|输出解析正则]
+#   name   = 门禁名（JSON 中保留，趋势表列名）
+#   命令   = 判定口径：exit 0 = PASS；非 0 = FAIL（单项失败不中断整批）
+#   正则   = 可选，从命令输出提取展示值（value），POSIX ERE（[0-9]，不支持 \d）；不填则 value = "exit <code>"
+# 原则：一门禁一命令（唯一口径，防两套命令两个结果）；命令缺失 → record FAIL（防假绿）
+# 示例（替换为项目自己的构建/测试/静态扫描命令）：
+build|bash scripts/build.sh
+test|ctest --output-on-failure|out of (\d+)
+coverage|bash scripts/run_coverage.sh|line (\d+\.?\d*)%
+valgrind|bash scripts/run_valgrind.sh|全 (\d+) errors
+lint|python3 scripts/run_lint.sh
+compliance|bash scripts/run_compliance.sh
