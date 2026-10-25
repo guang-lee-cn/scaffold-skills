@@ -8,26 +8,28 @@
 | [iso/](iso/) | 通用层 | Heavy+Light ISO 工作流（历史接入方式见下） |
 | [ai-code-review/](ai-code-review/) | 通用层 | AI 多角色代码审查流水线（实现 AI + 2+ 审查 AI + 校验 Oracle + 工具审查 + 状态机） |
 | [router/](router/) | 通用层 | L0 阶段路由（确定性 catalog 路由——参考 SWEStash skill-router 模式） |
-| [vendor/superpowers/](vendor/superpowers/) | 行为约束层 | obra/superpowers 镜像（TDD/debugging/plans/verification——保持 vendor 不动，可升级） |
-| [agent-skills/](agent-skills/) | 历史 | 第三方包（ad- 前缀，接入方式见下） |
+| [sdlc/](sdlc/) | 通用层 | SDLC 分阶段卡片（A 架构 / S 规范 / 复核 / 决策记录） |
+| [architecture-support-brief/](architecture-support-brief/) | 通用层 | 架构支撑包（不是架构主文档） |
+| [agent-skills/](agent-skills/) | 第三方 | Addy Osmani 工程技能包（ad- 前缀，接入方式见下） |
 | [research/](research/) | 历史 | 深度研究框架（复制粘贴到任意大模型） |
-| [notion-diagram/](notion-diagram/) | 通用层 | Notion 多色分区架构图风：SVG design token / 模板 / 渲染自检（豆包 `.user_skills/` 为运行副本，改动以仓库为准，同步见 `tools/sync-diagram-skill.sh`） |
+| [review/](review/) | 通用层 | incident-review 事故复盘纪律 |
+| [ros2/](ros2/) | 通用层 | ros2-amr-debug 调试纪律 |
 
-### 新项目接入（5 步）
+单技能目录（各有 `SKILL.md`）：`test-naming-and-structure/`、`comment-policy/`、`error-code-classification/`、`essential-tool-install/`、`notion-diagram/`。
 
-1. `git clone git@github.com:guang-lee-cn/skills.git`（或复用本地）
-2. 拷贝 `pj-core/` 到项目 skills 根目录（与项目无关，仅一份）
-3. 项目侧建 `skills/pj-config.md`：填项目参数（仓库/账号/路径/白名单/里程碑/命令）
-4. 按 `pj-core/pj-iso-bridge.md` 对接 ISO 三阶段
-5. 验证：模拟"拷贝到新项目"，确认定制点只有 `pj-config.md`
+### 新项目接入（装载器，不再手工 symlink）
 
-### 依赖钩子机制
+1. `git clone git@github.com:guang-lee-cn/scaffold-skills.git`（或复用本地 `/home/guang/code/scaffold-skills`）
+2. 项目用 scaffold 初始化后，编辑 `<项目>/skills/skills.conf`：按 `[common]` / `[agent]` / `[project]` 登记
+3. `bash /home/guang/code/scaffold-skills/scaffold/install-skills.sh --project <项目根>`
+4. 校验：`... --check`；清理漂移：`... --prune`
+5. 项目参数仍写 `pj-config.md`，技能清单只写名字
 
-- 各 skill 的「依赖声明」只写**引用钩子**（名称 + 下载指引）——不 vendor 重型依赖
-- 首次使用时 AI 按钩子下载到 `vendor/`，之后不再重复
-- 获取：clone 本仓库后 `git submodule update --init vendor/superpowers`（vendor 为 gitlink 引用，内容按需拉取——保留升级能力）；未 clone 本仓库时 `git clone https://github.com/obra/superpowers vendor/superpowers`
+三类技能一个入口：公共（本仓库）、第三方（`agent-skills/`）、项目自有（`<项目>/skills/`）。**清单是唯一权威**——手工 symlink 视为漂移，由 `--check` 报出。
 
-五组技能，三种接入 Claude 上下文的方式（原生 skill / CLAUDE.md 触发词 / 斜杠命令 + subagent persona）。**本仓库位置移动后必须按「自检」一节重新接线**，否则触发词/skill 会静默失效（2026-08-20 就因 prompt/ → skills/ 重组断链过一次）。
+本仓库位置移动后，重跑装载器即可；不再需要逐条重接。
+
+三种接入 Claude 上下文的方式（原生 skill / CLAUDE.md 触发词 / 斜杠命令 + subagent persona）。装载器只负责原生 skill；命令与 persona 见下方 agent-skills 安装段。
 
 ## 目录与接入方式
 
@@ -38,20 +40,17 @@
 | [iso/](iso/) | Heavy + Light 两套 ISO 工作流模板 | **原生 skill**：symlink 到 `~/.claude/skills/` 与 `<项目>/.agents/skills/`（`iso/install.sh` 一键装，覆盖 10 个平台目录） | "开始 ISO""做架构""实现子系统""集成测试"（重构项目加"重构"二字） |
 | [agent-skills/](agent-skills/) | 第三方工程技能包（Addy Osmani，25 技能 + 7 checklist，MIT）；**全部加 `ad-` 前缀** | **原生 skill + 命令**：symlink 到 `~/.claude/skills/ad-*`；命令 9 个、persona 4 个装到 `~/.claude/commands`、`~/.claude/agents` | `/ad-spec` `/ad-plan` `/ad-build` `/ad-test` `/ad-review` `/ad-ship` `/ad-constraints` `/ad-code-simplify` `/ad-webperf` |
 | [research/](research/) | 深度研究框架 + 八问快研 | **无自动接入**：设计为复制粘贴到任意大模型 | 见 [quick-decision-research.md](research/quick-decision-research.md) 内嵌指令块 |
-| [notion-diagram/](notion-diagram/) | Notion 多色分区架构图风（design token + SVG 模板 + 渲染自检） | **原生 skill**：豆包侧拷贝到 `.user_skills/`（`tools/sync-diagram-skill.sh` 一键同步）；Claude 侧 symlink 到 `~/.claude/skills/` | "画架构图""统一图风""Notion 风格 SVG""数据流图" |
 
-### 原生 skill（ros2 / review / notion-diagram）
+### 原生 skill（ros2 / review）
 
 标准 Claude Code skill 结构：`<组>/<skill-name>/SKILL.md`（YAML frontmatter 带 name + description）。
-通过 symlink 注册到用户级技能目录：
+优先用装载器登记到项目清单；确需用户级安装时：
 
 ```bash
-ln -sfn /home/guang/code/skills/ros2/ros2-amr-debug ~/.claude/skills/ros2-amr-debug
-ln -sfn /home/guang/code/skills/review/incident-review ~/.claude/skills/incident-review
-ln -sfn /home/guang/code/skills/notion-diagram ~/.claude/skills/notion-diagram
+bash /home/guang/code/scaffold-skills/scaffold/install-skills.sh --project <项目根> --user
 ```
 
-> notion-diagram 的豆包桌面端接入**不用软链**（Windows 读 WSL 路径不可靠），用 `tools/sync-diagram-skill.sh` 做拷贝同步；改动以仓库为准，运行副本（豆包 `.user_skills/`、`~/.claude/skills/`）定期同步。
+手工 symlink 仅作兜底（随后应补进清单，否则 `--check` 会报漂移）。
 
 多环境（网页 AI / 其他 IDE）加载见 [ros2/QUICKSTART.md](ros2/QUICKSTART.md)。
 
@@ -91,7 +90,7 @@ iso/ 不是原生 skill，靠 `/home/guang/CLAUDE.md` 的「ISO 工作流」一�
 **重新安装（覆盖更新上游后执行）**
 
 ```bash
-M=/home/guang/code/skills/agent-skills
+M=/home/guang/code/scaffold-skills/skills/agent-skills
 OLD=$(ls "$M/skills")        # 转换前先记旧名，用于清理旧软链
 
 # 1) 取上游（git clone 在本机易超时，用 tarball 更稳）
@@ -100,7 +99,7 @@ rm -rf /tmp/as && mkdir /tmp/as && tar xzf /tmp/as.tar.gz -C /tmp/as
 rm -rf "$M" && cp -r /tmp/as/agent-skills-main "$M"
 
 # 2) 差异 1 + 2：加前缀 + 校验器豁免修复（幂等；脚本就在本仓库 tools/prefix-ad.py）
-python3 /home/guang/code/skills/tools/prefix-ad.py "$M" --apply
+python3 /home/guang/code/scaffold-skills/skills/tools/prefix-ad.py "$M" --apply
 (cd "$M" && node scripts/validate-skills.js | tail -1)   # 必须 PASSED，0 error 0 warning
 
 # 3) 技能 + checklist 软链（先清旧名）
@@ -125,10 +124,13 @@ sed -i "s#references/performance-checklist.md#$R/performance-checklist.md#g"   ~
 ## 自检（改仓库结构/搬目录后必跑）
 
 ```bash
-# 1. 无悬空 symlink（skill 接线活着的判据）
-find ~/.claude/skills -type l ! -exec test -e {} \; -print   # 输出应为空
+# 1. 清单与链接一致（项目级）
+bash /home/guang/code/scaffold-skills/scaffold/install-skills.sh --project <项目根> --check
 
-# 2. CLAUDE.md 与 settings.json 无死路径
+# 2. 用户级无悬空 symlink
+find ~/.claude/skills -maxdepth 1 -type l ! -exec test -e {} \; -print   # 输出应为空
+
+# 3. CLAUDE.md 与 settings.json 无死路径
 grep -rn "code/prompt" /home/guang/CLAUDE.md ~/.claude/settings.json  # 输出应为空
 ```
 
@@ -138,13 +140,13 @@ ls ~/.claude/skills   | grep -c '^ad-'   # 25
 ls ~/.claude/commands | grep -c '^ad-'   # 9
 ls ~/.claude/agents   | grep -c '^ad-'   # 4
 grep -rl "agent-skills:" ~/.claude/commands ~/.claude/agents | wc -l    # 0
-(cd /home/guang/code/skills/agent-skills && node scripts/validate-skills.js | tail -1)   # PASSED
+(cd /home/guang/code/scaffold-skills/skills/agent-skills && node scripts/validate-skills.js | tail -1)   # PASSED
 ```
 
 ```bash
 # 4. iso skill（原生 skill 接线）
 ls ~/.claude/skills/iso/SKILL.md          # 应存在
-bash -n /home/guang/code/skills/iso/install.sh && echo "install.sh 语法 OK"
+bash -n /home/guang/code/scaffold-skills/skills/iso/install.sh && echo "install.sh 语法 OK"
 ```
 
 终极验证：新开会话，系统提示的可用 skills 列表里应出现 ros2-amr-debug 和 incident-review；说"开始 ISO"应能加载 iso/ 模板。
