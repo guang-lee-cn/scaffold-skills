@@ -1,6 +1,6 @@
 # sdd-cache hook
 
-Cross-session citation cache for [`source-driven-development`](../skills/source-driven-development/SKILL.md). Skips redundant `WebFetch` calls without weakening the skill's "verify against current docs" guarantee.
+Cross-session citation cache for [`source-driven-development`](../skills/ad-source-driven-development/SKILL.md). Skips redundant `WebFetch` calls without weakening the skill's "verify against current docs" guarantee.
 
 ## Why
 
