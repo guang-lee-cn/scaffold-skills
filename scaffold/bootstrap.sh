@@ -39,6 +39,11 @@ cp "$SCAFFOLD/templates/问题台账.md.tpl" "$DEST/docs/开发交付/问题台�
 cp "$SCAFFOLD/templates/偏离记录.md.tpl" "$DEST/docs/开发交付/偏离记录.md"
 cp "$SCAFFOLD/templates/开发状态.md.tpl" "$DEST/docs/开发交付/开发状态.md"
 
+# 角色规范骨架：只含职责/边界/红线/自检，编码与流程靠引用
+mkdir -p "$DEST/docs/开发交付/角色规范"
+cp "$SCAFFOLD/templates/角色规范-Dev.tpl" "$DEST/docs/开发交付/角色规范/Dev.md"
+cp "$SCAFFOLD/templates/角色规范-QA.tpl" "$DEST/docs/开发交付/角色规范/QA.md"
+
 # 流程索引：指向唯一源，不复制正文
 cat > "$DEST"/docs/开发交付/工程流程.md <<EOF
 # 工程流程 —— $NAME
@@ -54,6 +59,8 @@ cat > "$DEST"/docs/开发交付/工程流程.md <<EOF
 | 泄漏归属判定 | \`$REPO/scaffold/policies/泄漏归属判定.md\` |
 | Token 纪律 | \`$REPO/scaffold/policies/token纪律.md\` |
 | 调研先行与外部案例库 | \`$REPO/scaffold/policies/调研先行.md\` |
+| 规范该写什么（约束/判据/手段）与 DoD 四块 | \`$REPO/scaffold/policies/约束与判据.md\` |
+| 角色规范骨架（Dev / QA） | \`$REPO/scaffold/templates/角色规范-Dev.tpl\`、\`角色规范-QA.tpl\` |
 | 提交信息格式 | \`$REPO/skills/pj-core/references/commit.md\` |
 | 技能写作原则 | \`$REPO/scaffold/skills/skill-writing-principles.md\` |
 
