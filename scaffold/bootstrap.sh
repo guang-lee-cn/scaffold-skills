@@ -53,7 +53,9 @@ put "$SCAFFOLD/quality/gates.conf.example"  "$DEST/quality/gates.conf"
 gen "$DEST/pj-config.md" <<EOF
 # pj-config（新项目唯一参数落点）
 
-> 由 bootstrap 生成。脚手架位置变动时只改 \`SCAFFOLD_ROOT\` 一行，然后跑 \`check-deploy.sh\`。
+> 由 bootstrap 生成。脚手架位置变动时，改 \`SCAFFOLD_ROOT\` 这一行**足以**让规范路径继续生效，
+> 但已装载的技能是绝对路径软链、\`install-skills.sh\` 的源库默认也写死在 \$HOME 下：
+> 搬完必须重跑一次 \`install-skills.sh\`（以及 \`--worktrees\`），再跑 \`check-deploy.sh\` 确认。
 
 项目名: $NAME
 仓库: <git remote>

@@ -45,8 +45,9 @@ def load_all():
             if n not in names:
                 names.append(n)
         level, prov = provenance(d)
-        rows.append(dict(batch=d.get("batch", os.path.basename(fp)[5:-5]),
-                         date=d.get("date", "?"), gates=gates,
+        # batch/date 手写或旧工具可能给成数字：一律按字符串比，否则排序时 TypeError 整表不出
+        rows.append(dict(batch=str(d.get("batch", os.path.basename(fp)[5:-5])),
+                         date=str(d.get("date", "?")), gates=gates,
                          evidence=level, prov=prov))
     # 按文件名排会让 b10 排在 b2 前面，「最近状态/红转绿」随之错位。
     # 先按日期，再按批次名的自然序（数字段当整数比）。

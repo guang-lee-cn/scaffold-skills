@@ -46,6 +46,8 @@ else
   for key in pj-config.md 工程流程.md; do
     grep -qF "$key" "$ENTRY" || bad "CLAUDE.md 没有路由到 $key（多半是项目原有文件被保留，入口没写入）"
   done
+  n_e="$(grep -c '<[^>][^>]*>' "$ENTRY" || true)"
+  [ "$n_e" -gt 0 ] && todo "CLAUDE.md 还有 $n_e 个 <占位> 没填"
 fi
 
 # 2. 脚手架锚点
@@ -83,12 +85,28 @@ GC="$PROJECT/quality/gates.conf"
 if [ ! -f "$GC" ]; then
   bad "缺 quality/gates.conf"
 else
-  if [ -f "$SCAFFOLD/quality/gates.conf.example" ] && cmp -s "$GC" "$SCAFFOLD/quality/gates.conf.example"; then
-    bad "quality/gates.conf 还是示例原文（门禁命令没换成本项目的）"
-  fi
   n_gates="$(grep -vcE '^[[:space:]]*(#|$)' "$GC" || true)"
   # 零门禁 = 全链路假绿（run_gate 会 exit 1，这里提前说清是哪份文件）
   [ "${n_gates:-0}" -gt 0 ] || bad "quality/gates.conf 里没有任何门禁（只有注释/空行）"
+  if [ -f "$SCAFFOLD/quality/gates.conf.example" ] && cmp -s "$GC" "$SCAFFOLD/quality/gates.conf.example"; then
+    bad "quality/gates.conf 还是示例原文（门禁命令没换成本项目的）"
+  # 「还是示例」不能只靠与当前 example 字节比较：示例一改，老部署就全逃过检查（本轮实测过）。
+  # 再看内容——所有门禁命令都还是示例里那几条，等于没换。口径只有一条，所以与上面是 elif。
+  elif [ -f "$SCAFFOLD/quality/gates.conf.example" ] && [ "${n_gates:-0}" -gt 0 ]; then
+    ex_cmds="$(grep -vE '^[[:space:]]*(#|$)' "$SCAFFOLD/quality/gates.conf.example" |
+      cut -d'|' -f2 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+    n_same=0; n_all=0
+    while IFS='|' read -r nm cm _rest || [ -n "$nm" ]; do
+      nm="$(printf '%s' "$nm" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+      case "$nm" in ''|'#'*) continue;; esac
+      n_all=$((n_all+1))
+      cm="$(printf '%s' "$cm" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+      printf '%s\n' "$ex_cmds" | grep -qxF "$cm" && n_same=$((n_same+1))
+    done < "$GC"
+    if [ "$n_all" -gt 0 ] && [ "$n_same" -eq "$n_all" ]; then
+      bad "quality/gates.conf 的命令全部来自示例（没换成本项目的）"
+    fi
+  fi
 fi
 [ -f "$PROJECT/quality/run_gate.sh" ] || bad "缺 quality/run_gate.sh"
 [ -f "$PROJECT/quality/aggregate_quality.py" ] || bad "缺 quality/aggregate_quality.py（CLAUDE.md 的分析环命令跑不了）"
@@ -99,8 +117,9 @@ if [ ! -f "$CONF" ]; then
   bad "缺 skills/skills.conf（技能清单是唯一权威）"
 else
   if ! bash "$SCAFFOLD/install-skills.sh" --project "$PROJECT" --check >/dev/null 2>&1; then
-    # user 级安装是合法形态（README/SOP 都允许），与下面 worktree 分支保持同一判据
-    if [ -d "$HOME/.claude/skills" ]; then
+    # user 级安装是合法形态（README/SOP 都允许），与下面 worktree 分支同一判据。
+    # 但不能只看目录在不在：目录存在而技能没链上，等于放行一个空目录。
+    if bash "$SCAFFOLD/install-skills.sh" --project "$PROJECT" --user --check >/dev/null 2>&1; then
       warn "项目级技能未装，当前靠 user 级 ~/.claude/skills 兜底（清单对项目不生效）"
     else
       bad "技能装载未就绪——跑 install-skills.sh --project $PROJECT 看明细"
@@ -127,8 +146,9 @@ else
   fi
 fi
 
-# 8. 回流入口
+# 8. 回流入口与偏离台账
 [ -f "$PROJECT/docs/开发交付/回流候选.md" ] || warn "缺 docs/开发交付/回流候选.md（项目 → 脚手架无回路）"
+[ -f "$PROJECT/docs/开发交付/偏离记录.md" ] || warn "缺 docs/开发交付/偏离记录.md（偏离无台账，收尾无从回灌）"
 
 echo "---"
 echo "项目: $PROJECT"

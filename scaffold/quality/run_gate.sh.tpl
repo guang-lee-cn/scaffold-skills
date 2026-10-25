@@ -27,6 +27,8 @@ while IFS='|' read -r name cmd re || [ -n "$name" ]; do
   name="$(trim "${name%$'\r'}")"
   cmd="$(trim "${cmd%$'\r'}")"
   re="$(trim "${re%$'\r'}")"
+  # Windows 侧编辑器可能写 BOM：不剥掉的话第一个门禁名会变成 <BOM>unit，列名对不上
+  name="${name#$'\xef\xbb\xbf'}"
   [ -z "$name" ] && continue
   case "$name" in \#*) continue;; esac
   count=$((count+1))
@@ -38,9 +40,12 @@ while IFS='|' read -r name cmd re || [ -n "$name" ]; do
     continue
   fi
   # 防假绿：命令存在性检查（缺失 = FAIL，不空跑）；先跳过前置的 VAR=val
+  # 值可能带引号且引号内有空格（FOO="a b" cmd），所以按整段赋值剥，不能按第一个空格切
   probe="$cmd"
-  while [[ "$probe" =~ ^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]] ]]; do
-    probe="$(trim "${probe#*[[:space:]]}")"
+  while :; do
+    next="$(printf '%s' "$probe" | sed -E "s/^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*=(\"[^\"]*\"|'[^']*'|[^[:space:]]*)[[:space:]]+//")"
+    [ "$next" = "$probe" ] && break
+    probe="$next"
   done
   tool="${probe%% *}"
   if ! command -v "$tool" >/dev/null 2>&1 && ! [ -x "$tool" ]; then
@@ -95,7 +100,30 @@ def git(*args):
 
 commit = git("rev-parse", "HEAD")
 branch = git("rev-parse", "--abbrev-ref", "HEAD")
-status = git("status", "--porcelain", "--untracked-files=normal")
+
+
+def status_paths():
+    """-z 而不是默认格式：路径不加引号（含空格/中文不被转义），也不受首列空格被 strip 的影响。"""
+    try:
+        r = subprocess.run(["git", "-C", root, "status", "--porcelain", "-z",
+                            "--untracked-files=normal"],
+                           capture_output=True, timeout=10)
+    except Exception:
+        return []
+    if r.returncode != 0:
+        return []
+    ents = r.stdout.decode("utf-8", "surrogateescape").split("\0")
+    out, i = [], 0
+    while i < len(ents):
+        e = ents[i]
+        i += 1
+        if len(e) < 4:
+            continue
+        out.append(e[3:])
+        if e[0] in ("R", "C"):
+            i += 1   # 重命名/复制条目后面还跟着原路径
+    return out
+
 
 # 未跟踪文件也算脏：commit 里没有的源码被编进来，这次 run 就不是那个 commit 的证据。
 # 例外只有采集环自己的产物（gate-*.json / .gates.tmp），否则跑一次就把下一次判脏。
@@ -107,8 +135,8 @@ def own(path):
             or (path.startswith(qrel + "/gate-") and path.endswith(".json")))
 
 
-dirty = -1 if not commit else len([l for l in status.splitlines()
-                                   if l.strip() and not own(l[3:])])
+dirty_paths = [p for p in status_paths() if not own(p)]
+dirty = -1 if not commit else len(dirty_paths)
 
 gates = []
 with open(tmp, encoding="utf-8") as f:
@@ -131,7 +159,11 @@ print("gate json ->", path, len(gates), "gates")
 if not commit:
     print("[警告] 取不到 commit：本次 run 不是证据级")
 elif dirty != 0:
-    print("[警告] 工作树有 %d 个改动/未跟踪文件（dirty=%d）：本次 run 不是证据级" % (dirty, dirty))
+    # 只报数量等于让人自己去猜哪来的脏：点名前几个，超过就省
+    show = dirty_paths[:5]
+    more = "" if len(dirty_paths) <= 5 else " …（另有 %d 个）" % (len(dirty_paths) - 5)
+    print("[警告] 工作树有 %d 个改动/未跟踪文件（dirty=%d）：本次 run 不是证据级：%s%s"
+          % (dirty, dirty, " ".join(show), more))
 PYEOF
 rc=$?
 rm -f "$TMP"
