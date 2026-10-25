@@ -30,6 +30,7 @@
 | 事项 | 权威 |
 |---|---|
 | 编码规范 | <技能路径，如 iso/operations/<lang>.md + references/idioms> |
+| 编码范例（写新类 / 新接口前） | <cpp-exemplars 或本项目等价：真实片段 + 看什么 / 不看什么> |
 | 注释取舍 | <comment-policy 或本项目等价> |
 | 测试命名与结构 | <test-naming-and-structure 或本项目等价> |
 | 错误码分层 | <error-code-classification 或本项目等价> |
