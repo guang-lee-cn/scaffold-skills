@@ -49,7 +49,7 @@ cat >> AGENTS.md <<'EOF'
 
 ## AI 调试纪律（强制）
 调试任何问题前，先读取并遵守：
-/guang/code/skills/ros2/ros2-amr-debug/SKILL.md
+/home/guang/code/scaffold-skills/skills/ros2/ros2-amr-debug/SKILL.md
 （CLAUDE.md 同步此条；无读取能力的环境由用户粘贴）
 EOF
 cp AGENTS.md CLAUDE.md 2>/dev/null || true
