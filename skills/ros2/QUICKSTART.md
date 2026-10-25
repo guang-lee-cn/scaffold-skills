@@ -2,7 +2,7 @@
 
 > 目标：**任何 AI 环境**（Claude Code / ZCode / Cursor / Codex / 网页 ChatGPT 等）一键加载本目录技能，
 > 让 AI 按纪律调试 ROS2/AMR 项目，而不是自由发挥。
-> 技能仓库位置：`/home/guang/code/skills/ros2/`
+> 技能仓库位置：`/home/guang/code/scaffold-skills/skills/ros2/`
 
 ## 目录结构
 
@@ -23,7 +23,7 @@ ros2/
 
 ```text
 你将作为 ROS2/AMR 调试代理工作。必须先读取并严格遵守以下技能文件中的全部纪律：
-/home/guang/code/skills/ros2/ros2-amr-debug/SKILL.md
+/home/guang/code/scaffold-skills/skills/ros2/ros2-amr-debug/SKILL.md
 （无文件读取能力时，我会把文件内容粘贴给你）
 核心要求：结论必须标证据等级（铁证/推断/继承）；修改必须遵守责任分层；
 每次改动写六元组日志；禁止为通过仿真环境而硬编码大脑代码。
@@ -36,7 +36,7 @@ ros2/
 在 WSL 终端执行，把输出整段复制给 AI：
 
 ```bash
-cat /home/guang/code/skills/ros2/ros2-amr-debug/SKILL.md | sed 's/^/    /'
+cat /home/guang/code/scaffold-skills/skills/ros2/ros2-amr-debug/SKILL.md | sed 's/^/    /'
 ```
 
 ### 方式 U3：项目级注入（推荐，对该项目所有 AI 会话永久生效）
@@ -64,12 +64,12 @@ cp AGENTS.md CLAUDE.md 2>/dev/null || true
 ```bash
 # 全局安装（所有项目可用）
 mkdir -p ~/.claude/skills
-ln -sfn /home/guang/code/skills/ros2/ros2-amr-debug ~/.claude/skills/ros2-amr-debug
+ln -sfn /home/guang/code/scaffold-skills/skills/ros2/ros2-amr-debug ~/.claude/skills/ros2-amr-debug
 
 # 或仅当前项目安装
 cd /home/guang/code/ros2_ws/src/ros2_amr_framework
 mkdir -p .claude/skills
-ln -sfn /home/guang/code/skills/ros2/ros2-amr-debug .claude/skills/ros2-amr-debug
+ln -sfn /home/guang/code/scaffold-skills/skills/ros2/ros2-amr-debug .claude/skills/ros2-amr-debug
 ```
 
 装完后新开会话即可自动触发；也可显式调用 `/ros2-amr-debug`。
@@ -85,11 +85,11 @@ cat > .cursor/rules/ros2-debug.mdc <<'EOF'
 description: ROS2/AMR 调试纪律
 alwaysApply: true
 ---
-@/home/guang/code/skills/ros2/ros2-amr-debug/SKILL.md
+@/home/guang/code/scaffold-skills/skills/ros2/ros2-amr-debug/SKILL.md
 EOF
 ```
 
-或在对话中输入 `@/home/guang/code/skills/ros2/ros2-amr-debug/SKILL.md` 直接引用。
+或在对话中输入 `@/home/guang/code/scaffold-skills/skills/ros2/ros2-amr-debug/SKILL.md` 直接引用。
 
 ### Codex CLI / 其它读 AGENTS.md 的 agent
 
