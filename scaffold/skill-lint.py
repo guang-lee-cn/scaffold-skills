@@ -8,8 +8,10 @@
 检查项：
     1. frontmatter：--- 包裹，含 name / description，description 单行且含「触发词：」
     2. catalog ↔ 目录一致：每个含 SKILL.md 的目录都在 catalog 里，反之亦然
-    3. 相对链接可解析
+    3. 相对链接可解析（skills/ 与 scaffold/ 一起查）
     4. 内容完全相同的重复文件（警告）
+    5. 零引用的 policies / templates / sop（警告——熵的度量，SOP §11.4 的删除候选）
+    6. 触发词冲突（警告——两个技能抢同一个触发词，路由会靠猜）
 
 不做的事：不校验措辞、不校验技能内容质量——那些靠评审。
 """
@@ -21,6 +23,7 @@ import sys
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SKILLS = os.path.join(REPO, "skills")
+SCAFFOLD = os.path.join(REPO, "scaffold")
 CATALOG = os.path.join(SKILLS, "router", "catalog.json")
 SKIP_DIRS = {".git", "node_modules", "vendor"}
 
@@ -143,11 +146,17 @@ def check_catalog():
 LINK_RE = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
 
 
+def md_files(*roots):
+    """skills/ 与 scaffold/ 一起查：真正会长大的那部分是 scaffold/，不查就等于没闸。"""
+    for root in roots:
+        for path in walk(root):
+            if path.endswith(".md"):
+                yield path
+
+
 def check_links():
     errs = []
-    for path in walk(SKILLS):
-        if not path.endswith(".md"):
-            continue
+    for path in md_files(SKILLS, SCAFFOLD):
         with open(path, encoding="utf-8") as fh:
             text = fh.read()
         for target in LINK_RE.findall(text):
@@ -163,15 +172,57 @@ def check_links():
 def find_duplicates():
     seen = {}
     warns = []
-    for path in walk(SKILLS):
-        if not path.endswith(".md"):
-            continue
+    for path in md_files(SKILLS, SCAFFOLD):
         with open(path, "rb") as fh:
             digest = hashlib.sha256(fh.read()).hexdigest()
         if digest in seen:
             warns.append(f"重复文件: {rel(path)} 与 {rel(seen[digest])}")
         else:
             seen[digest] = path
+    return warns
+
+
+def check_zero_ref():
+    """零引用 = 没人用的资产 = 熵。SOP §11.4「哪条规则没生效过 → 删掉」的数据源。
+
+    只查 scaffold/ 下的规则与模板（技能靠 catalog 与 description 生效，不算引用）。
+    引用 = 仓库内任意文本提到该文件名（bootstrap/README/其他规范都可以）。
+    """
+    warns = []
+    targets = []
+    for sub in ("policies", "templates", "sop"):
+        targets += [p for p in walk(os.path.join(SCAFFOLD, sub)) if p.endswith((".md", ".tpl"))]
+    corpus = {}
+    for path in walk(REPO):
+        if path.endswith((".md", ".tpl", ".sh", ".py", ".json")):
+            with open(path, encoding="utf-8", errors="ignore") as fh:
+                corpus[path] = fh.read()
+    for t in targets:
+        base = os.path.basename(t)
+        hits = sum(1 for p, text in corpus.items() if p != t and base in text)
+        if hits == 0:
+            warns.append(f"{rel(t)}: 零引用（没有任何文件指向它；两个项目都没用就删）")
+    return warns
+
+
+TRIGGER_STOP = {"skill", "skills", "技能", "工具", "方法"}
+
+
+def check_trigger_collision():
+    """两个技能共享同一触发词 = 路由歧义。歧义要显式，不许悄悄长出来。"""
+    warns = []
+    owners = {}
+    for d in skill_dirs():
+        e = entry_for(d)
+        for tok in re.split(r"[/、,，\s]+", e.get("触发词") or ""):
+            tok = tok.strip()
+            if len(tok) < 2 or tok.lower() in TRIGGER_STOP:
+                continue
+            owners.setdefault(tok, []).append(e["name"])
+    for tok, names in sorted(owners.items()):
+        uniq = sorted(set(names))
+        if len(uniq) > 1:
+            warns.append(f"触发词冲突「{tok}」: {' / '.join(uniq)}（路由要靠人判，收窄或合并）")
     return warns
 
 
@@ -187,7 +238,7 @@ def main():
 
     fm_errs, fm_warns = check_frontmatter()
     errs = fm_errs + check_catalog() + check_links()
-    warns = fm_warns + find_duplicates()
+    warns = fm_warns + find_duplicates() + check_zero_ref() + check_trigger_collision()
     for w in warns:
         print(f"[警告] {w}")
     for e in errs:
