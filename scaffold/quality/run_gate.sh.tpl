@@ -103,15 +103,16 @@ branch = git("rev-parse", "--abbrev-ref", "HEAD")
 
 
 def status_paths():
-    """-z 而不是默认格式：路径不加引号（含空格/中文不被转义），也不受首列空格被 strip 的影响。"""
+    """-z 而不是默认格式：路径不加引号（含空格/中文不被转义），也不受首列空格被 strip 的影响。
+    出错返回 None——取不到状态不能当成「干净」，那是 fail-open。"""
     try:
         r = subprocess.run(["git", "-C", root, "status", "--porcelain", "-z",
                             "--untracked-files=normal"],
                            capture_output=True, timeout=10)
     except Exception:
-        return []
+        return None
     if r.returncode != 0:
-        return []
+        return None
     ents = r.stdout.decode("utf-8", "surrogateescape").split("\0")
     out, i = [], 0
     while i < len(ents):
@@ -131,12 +132,17 @@ qrel = os.path.relpath(quality, root).replace(os.sep, "/")
 
 
 def own(path):
-    return (path == qrel + "/.gates.tmp"
+    # trend.md 是分析环的产物：不排除的话「先聚合再跑门禁」会把下一批判脏
+    return (path in (qrel + "/.gates.tmp", qrel + "/trend.md")
             or (path.startswith(qrel + "/gate-") and path.endswith(".json")))
 
 
-dirty_paths = [p for p in status_paths() if not own(p)]
-dirty = -1 if not commit else len(dirty_paths)
+paths = status_paths()
+if paths is None:
+    dirty, dirty_paths = -1, []        # 取不到状态 ≠ 干净
+else:
+    dirty_paths = [p for p in paths if not own(p)]
+    dirty = -1 if not commit else len(dirty_paths)
 
 gates = []
 with open(tmp, encoding="utf-8") as f:
@@ -158,6 +164,8 @@ print("gate json ->", path, len(gates), "gates")
 
 if not commit:
     print("[警告] 取不到 commit：本次 run 不是证据级")
+elif dirty < 0:
+    print("[警告] 取不到工作树状态（git status 失败或超时）：不能据此判证据级，按 dirty=-1 记")
 elif dirty != 0:
     # 只报数量等于让人自己去猜哪来的脏：点名前几个，超过就省
     show = dirty_paths[:5]

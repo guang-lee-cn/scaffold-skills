@@ -51,6 +51,12 @@ while [ $# -gt 0 ]; do
   esac
 done
 
+# --check 是只读的，--prune 会删断链：两者同时给是用法错误，不静默容忍
+if [ "$CHECK" -eq 1 ] && [ "$PRUNE" -eq 1 ]; then
+  echo "--check 与 --prune 不能同时给（检查不该有副作用）" >&2
+  usage 1
+fi
+
 [ -n "$PROJECT" ] || { echo "缺 --project <项目根>" >&2; usage 1; }
 PROJECT="$(cd "$PROJECT" && pwd)" || { echo "项目目录不存在" >&2; exit 1; }
 MANIFEST="$PROJECT/skills/skills.conf"
