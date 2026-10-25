@@ -41,17 +41,8 @@ description: L0 技能路由调度。当需要决定"当前阶段该用哪个 sk
 
 ## 4. 路由纪律
 
-- 阶段判定不清 → 问 G（单一问题渐进，一次一个问题）
+- 阶段判定不清 → 一次只问一个问题；没人可问时按现有证据选最保守的阶段，并把判断写进开发状态
 - 多阶段同时出现 → 拆阶段逐个路由（不并行执行不同阶段 skill）
-- 目标 skill 缺失 → 报告缺失 + 给出下载钩子，不静默降级
+- 目标 skill 缺失 → 报告缺失，不静默降级
 
-> **可选 vendor 标注（2026-10-22 收敛期）**：`superpowers:*`（writing-plans / TDD / systematic-debugging / verification-before-completion / finishing-a-development-branch）保留在 catalog 为**可选 vendor（默认未启用）**——如启用按需下载 obra/superpowers 对应子集并登记 catalog 后替换本表对应主列；**决策表默认引自研等价物**（iso / pj-core / test-naming-and-structure），避免双重体系选择负担。
-
-> **有效性评估（2026-10-22，证据：obra/superpowers 公开结构 + 本仓自研 skill 实战实证）——分场景判定，非二选一**：
-> | 等价物对 | 自研（本项目实证） | superpowers（外部经典） | 判定 |
-> |---|---|---|---|
-> | 调试 | pj-core issues 九段式（记录+Oracle，MTComm 实战） | systematic-debugging 4-phase（复现→根因→假设→修复，防 patch-symptom） | **借鉴 4-phase 方法论**（补自研短板），九段式记录保留 |
-> | TDD | test-naming + gtest 门禁（39/39、覆盖 98.6% 实证） | 强制 RED→GREEN→REFACTOR，禁 code-before-tests | 约束等效且自研已实证 → **借鉴 RED-GREEN 纪律表述**，体系保持 |
-> | 计划 | 里程碑+指令 DoD（团队节奏，300-600 行/批） | writing-plans 原子任务化（2-5 分钟，单 agent 长跑） | 场景不同 → 保持自研 |
-> | 完成验证 | pj-core 门禁套件+双通道评审+G 批准 | verification-before-completion | 自研更完整（含评审/门禁）→ 保持 |
-> **结论**：自研体系与 SOP/门禁/四角色深度绑定且已实证，保持为默认；superpowers 作**方法论参照源**，仅裁用 systematic-debugging 4-phase 与 TDD RED-GREEN 纪律（轻量思想借鉴，不整体引入——符合"轻量按需裁用"原则）。
+> **外部方法论参照**：`obra/superpowers` 未 vendor，也不在 catalog 内。自研等价物（iso / pj-core / test-naming-and-structure）已有实证，默认就用自研；只借鉴两条方法论——调试按 4-phase（复现 → 根因 → 假设 → 修复，禁 patch-symptom），测试按 RED → GREEN → REFACTOR 纪律。真要正式引入某个外部 skill，先登记 catalog 再改决策表，不做"半引入"。

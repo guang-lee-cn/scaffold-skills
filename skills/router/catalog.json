@@ -1,82 +1,279 @@
 {
-  "version": "0.2",
-  "说明": "L0 Router 唯一数据源——全量技能目录。AI 按阶段查决策表后从本表按名调用。vendor 条目为按需下载，不在版本库中。。catalog 外目录（如 agent-skills 外部仓库）= 未编目未启用，不参与路由；如启用须登记本表并过正交性核对。superpowers 为可选 vendor（默认未启用）。",
-  "axes": {
-    "阶段轴": "sdlc/R|S|A|I|V|D|P —— 回答『什么时候做』",
-    "来源轴": "vendor/|agent-skills/ —— 回答『自研 or 第三方』",
-    "领域轴": "domains/ —— 回答『什么技术域』"
-  },
+  "version": "0.3",
+  "说明": "L0 Router 数据源，由 scaffold/skill-lint.py --write 生成，不要手改。本表与 skills/ 下所有含 SKILL.md 的目录一一对应；未登记 = 未启用。",
   "catalog": [
     {
-      "name": "sdlc",
+      "name": "ai-code-review",
       "layer": "通用",
-      "轴": "阶段",
-      "职责": "需求→交付 7 段阶段组织（R/S/A/I/V/D/P），含 _shared 证据分级·交接协议·风险模式库",
-      "触发词": "阶段/需求挖掘/规范对齐/架构设计/实现/验证/交付/复盘/追溯"
+      "路径": "ai-code-review",
+      "职责": "AI 多角色代码审查流水线。当需要多 AI 协作审查代码（实现 AI + 2+ 审查 AI + 工具审查）、对弈复核、审查结果收敛、统一修复时使用",
+      "触发词": "代码审查/审查/多AI审查/对弈复核/审查计划/审查报告/审查收口/校验。跨项目通用，专用部分在 references 定制"
     },
     {
-      "name": "pj-core",
+      "name": "architecture-support-brief",
       "layer": "通用",
-      "轴": "元层",
-      "职责": "协作流程/行为约束(Iron Law)/问题四分类/复盘九段式/价值流/文档模板/WSL桥接",
-      "触发词": "协作/门禁/日报/复盘/问题/落盘/提交/归档/纪律"
+      "路径": "architecture-support-brief",
+      "职责": "按需生成“支持性说明/评审答辩包”，结论前置，不改主方案、不反向链接。当用户说“展开 / 深挖 / 依据 / support-brief”时使用：把当前上下文中的争议点写成一份可独立阅读的简短支持文档，供评审人追问时解释",
+      "触发词": ""
+    },
+    {
+      "name": "comment-policy",
+      "layer": "通用",
+      "路径": "comment-policy",
+      "职责": "代码注释四分类策略。评审/清理代码注释时判定：契约注释保留（A）、决策注释迁移设计文档（B）、复述注释删除（C）、协作/治理元信息删除（D——git归属/编号黑话/QA取阅/CI说明等，治理事实落 .gitignore/脚本头部/README）；含 Chesterton's Fence 迁移前提",
+      "触发词": "注释/代码注释/注释清理/契约标注/自注释/设计意图文档/编号黑话/协作元信息/治理注释"
+    },
+    {
+      "name": "error-code-classification",
+      "layer": "通用",
+      "路径": "error-code-classification",
+      "职责": "错误码两面分类与判定流程。设计库/中间件/API 返回码时，判定哪些状态码对外（契约面）、哪些进入可观测（观测面）、承载方式（计数/采样）",
+      "触发词": "错误码/状态码/返回码/错误模型/错误分类/可观测/error.code"
+    },
+    {
+      "name": "essential-tool-install",
+      "layer": "通用",
+      "路径": "essential-tool-install",
+      "职责": "关键依赖工具安装不可跳过的治理规则。当任务的第一优先级/最有效手段依赖某工具（门禁、验证、证据采集），而该工具未安装且需要安装权限时，禁止降级跳过或换弱工具，直接把精确安装命令与方法交给协作者，安装完成后验证并继续原工作流",
+      "触发词": "工具未安装/缺少依赖/需要 sudo/apt install/valgrind/uncrustify/cppcheck/lcov/gcov/工具缺失/安装权限"
+    },
+    {
+      "name": "incident-review",
+      "layer": "通用",
+      "路径": "review/incident-review",
+      "职责": "事故复盘与响应纪律（三源融合：Google SRE《Anatomy of an Incident》× 陈中《复盘》× 邱昭良《复盘+》）。适用于：生产事故/故障复盘、postmortem、断连/崩溃/OOM 类问题的事后总结、同一故障重复发生、排查走了弯路（误诊）后的检讨、经验教训沉淀为工具与 SOP",
+      "触发词": "\"复盘一下\"、\"写 postmortem\"、\"总结一下这次故障\"、\"为什么同一个问题又出现了\""
     },
     {
       "name": "iso",
       "layer": "通用",
-      "轴": "方法内核",
-      "职责": "项目阶段工作流（Insight/Strategy/Operation，Heavy+Light）",
-      "触发词": "开始ISO/做架构/设计接口/实现子系统/集成测试/E2E"
+      "路径": "iso",
+      "职责": "引导项目从想法走到代码的分层工作流（Insight → Strategy → Operation），分 Heavy 与 Light 两条轨道。 Heavy 适用于大中型 C++ 底层工程：强制四层架构、四类架构图、ADR、接口契约、TDD-GWT、上下文隔离； Light 适用于原型 / 小工具 / 业务系统：非线性、可跳转、规模自适应、语言无关。 两条轨道都带阶段门禁、强制文件产出、回滚机制与违规自检",
+      "触发词": "开始 ISO、ISO 工作流、分析需求、项目启动、想清楚要做什么、做架构、设计架构、设计接口、拆分子系统、 实现子系统、写代码、落地开发、集成测试、端到端测试、E2E、准备上线、重构已有项目、改造现有系统、迁移旧系统。 Trigger phrases: start ISO, ISO workflow, analyze requirements, design architecture, define interfaces, split subsystems, implement subsystem, integration test, refactor existing project. 不适用于：ISO 9001 / ISO 27001 等管理标准认证，ISO 镜像 / 光盘映像文件——这些与\"ISO 方法论\"无关，遇到时不要加载本技能"
     },
     {
-      "name": "ai-code-review",
+      "name": "notion-diagram",
       "layer": "通用",
-      "轴": "阶段(V)",
-      "职责": "多AI审查流水线（实现+2审查+校验Oracle+工具+状态机）",
-      "触发词": "代码审查/对弈复核/审查收口/校验"
+      "路径": "notion-diagram",
+      "职责": "\"绘制 Notion/文档风格的彩色分区架构图（SVG）：低饱和 pastel 语义分区底色 + 同色系描边 + 同色系深色标题，扁平、无阴影、圆角、大留白。用于架构/拓扑/部署/分层/数据流/系统上下文/机制/流程/时序/状态机类 SVG 图，或重绘、统一既有图片视觉风格、固定图风时。流程：先 ASCII 图对齐定稿，再套 assets/template.svg 与 references/style-tokens.md，转 PNG 自检后回填 Markdown。\"",
+      "触发词": ""
+    },
+    {
+      "name": "pj-core",
+      "layer": "通用",
+      "路径": "pj-core",
+      "职责": "通用工程协作流程核心（与工具/项目无关）。任何项目（Fast-DDS RPC / 嵌入式 / 应用软件）的\"人机协作开发\"流程骨架：Action Plan 门禁、心跳约定、批次管线、Git 提交规范、问题四分类与复盘、价值流、文档模板、WSL 桥接纪律、ISO 三阶段对接、行为约束（Iron Law）。当接替 agent 需要了解\"如何与 G 协作、如何推进单元开发、如何归档文档、遵守哪些纪律\"时使用。专用项目在其 skills/ 下提供 pj-config.md 与本 skill 对接",
+      "触发词": "协作/门禁/日报/复盘/问题/价值流/落盘/提交/归档/纪律/交接/接手/质疑/申诉"
+    },
+    {
+      "name": "report",
+      "layer": "通用",
+      "路径": "report",
+      "职责": "技术调研/研究类报告的**呈现层**规范：把研究结论组织成研发总监可读、研发可落地、审计可追溯的正式报告。当需要输出研究报告、技术调研报告、选型报告、版本对比报告、迁移可行性报告时使用。本 skill 管「怎么呈现」，研究过程（怎么调研）归 research/",
+      "触发词": "调研报告/研究报告/对比报告/迁移评估/报告呈现/写报告/整理结论成文"
+    },
+    {
+      "name": "ros2-amr-debug",
+      "layer": "通用",
+      "路径": "ros2/ros2-amr-debug",
+      "职责": "ROS2/AMR 系统的 AI 协同调试纪律。强制证据分级、区分性实验、责任分层修复、改动六元组日志。适用于任何 AI 代理诊断 ros2_amr_framework、仿真/真机问题、DDS 通信、传感器数据异常的场景。用户是 ROS2/AMR 领域新手，无法代码级审查，依赖本技能保证 AI 方案可信、非破坏性",
+      "触发词": ""
     },
     {
       "name": "router",
       "layer": "通用",
-      "轴": "元层",
-      "职责": "L0 阶段路由（本文件）",
-      "触发词": "路由/阶段决策/接手"
+      "路径": "router",
+      "职责": "L0 技能路由调度。当需要决定\"当前阶段该用哪个 skill\"、接手项目、切换工作阶段、多 skill 协作编排时使用",
+      "触发词": "路由/调度/该用什么skill/阶段决策/接手项目/编排。本 skill 是纯决策薄件——读 catalog 后按阶段决策表调用目标 skill"
     },
     {
-      "name": "superpowers:test-driven-development",
-      "轴": "来源",
-      "职责": "TDD红绿流程（Iron Law：无失败测试不许写生产代码）",
-      "触发词": "TDD/测试优先/红绿",
-      "依赖": "按需下载：git clone https://github.com/obra/superpowers.git vendor/superpowers && git -C vendor/superpowers checkout 8ca22dba9a94f28898bbce59f2537ff4d87c747d（详见 ../sdlc/_shared/vendor-recovery.md）",
-      "按需下载": true,
-      "层": "vendor"
+      "name": "sdlc",
+      "layer": "通用",
+      "路径": "sdlc",
+      "职责": "需求→交付 的 7 段阶段链。当需要判断\"当前该走哪个阶段\"、按研发阶段组织工作产出、或做跨阶段追溯时使用",
+      "触发词": "需求挖掘/规范对齐/架构设计/实现/验证/交付/复盘/阶段/追溯。本 skill 是**组织层**——它规定\"什么时候产出什么\"，具体\"怎么做\"由各段卡片与既有方法内核（iso/pj-core）规定"
     },
     {
-      "name": "superpowers:systematic-debugging",
-      "轴": "来源",
-      "职责": "调试行为门禁（无根因调查不许提修复/3失败质疑架构）",
-      "触发词": "故障/调试/定位/复现/死锁/泄漏",
-      "依赖": "按需下载：git clone https://github.com/obra/superpowers.git vendor/superpowers && git -C vendor/superpowers checkout 8ca22dba9a94f28898bbce59f2537ff4d87c747d（详见 ../sdlc/_shared/vendor-recovery.md）",
-      "按需下载": true,
-      "层": "vendor"
+      "name": "test-naming-and-structure",
+      "layer": "通用",
+      "路径": "test-naming-and-structure",
+      "职责": "测试用例命名与结构规范。编写/评审测试时判定：用例名是否行为语义（GWT）、内部变量/helper 是否领域语义化、流程是否该抽函数（AA-FCP）、断言放哪",
+      "触发词": "测试命名/用例命名/GWT/AA-FCP/Rule of Three/测试结构/helper/活文档"
     },
     {
-      "name": "superpowers:writing-plans",
-      "轴": "来源",
-      "职责": "任务级计划（给陌生工程师的可执行步骤）",
-      "触发词": "计划/拆分/任务分解",
-      "依赖": "按需下载：git clone https://github.com/obra/superpowers.git vendor/superpowers && git -C vendor/superpowers checkout 8ca22dba9a94f28898bbce59f2537ff4d87c747d（详见 ../sdlc/_shared/vendor-recovery.md）",
-      "按需下载": true,
-      "层": "vendor"
+      "name": "ad-api-and-interface-design",
+      "layer": "第三方",
+      "路径": "agent-skills/skills/ad-api-and-interface-design",
+      "职责": "Guides stable API and interface design. Use when designing APIs, module boundaries, or any public interface. Use when creating REST or GraphQL endpoints, defining type contracts between modules, or establishing boundaries between frontend and backend.",
+      "触发词": ""
     },
     {
-      "name": "superpowers:verification-before-completion",
-      "轴": "来源",
-      "职责": "完成声明措辞门禁（无新鲜RUN证据不许声称完成）",
-      "触发词": "声称完成/验证/收口",
-      "依赖": "按需下载：git clone https://github.com/obra/superpowers.git vendor/superpowers && git -C vendor/superpowers checkout 8ca22dba9a94f28898bbce59f2537ff4d87c747d（详见 ../sdlc/_shared/vendor-recovery.md）",
-      "按需下载": true,
-      "层": "vendor"
+      "name": "ad-browser-testing-with-devtools",
+      "layer": "第三方",
+      "路径": "agent-skills/skills/ad-browser-testing-with-devtools",
+      "职责": "Tests in real browsers via Chrome DevTools MCP. Use when building or debugging anything that runs in a browser. Use when you need to inspect the DOM, capture console errors, analyze network requests, profile performance, or verify visual output with real runtime data. Requires the chrome-devtools MCP server to be configured.",
+      "触发词": ""
+    },
+    {
+      "name": "ad-ci-cd-and-automation",
+      "layer": "第三方",
+      "路径": "agent-skills/skills/ad-ci-cd-and-automation",
+      "职责": "Automates CI/CD pipeline setup. Use when setting up or modifying build and deployment pipelines. Use when you need to automate quality gates, configure test runners in CI, or establish deployment strategies.",
+      "触发词": ""
+    },
+    {
+      "name": "ad-code-review-and-quality",
+      "layer": "第三方",
+      "路径": "agent-skills/skills/ad-code-review-and-quality",
+      "职责": "Conducts multi-axis code review. Use before merging any change. Use when reviewing code written by yourself, another agent, or a human. Use when you need to assess code quality across multiple dimensions before it enters the main branch.",
+      "触发词": ""
+    },
+    {
+      "name": "ad-code-simplification",
+      "layer": "第三方",
+      "路径": "agent-skills/skills/ad-code-simplification",
+      "职责": "Simplifies code for clarity. Use when refactoring code for clarity without changing behavior. Use when code works but is harder to read, maintain, or extend than it should be. Use when reviewing code that has accumulated unnecessary complexity.",
+      "触发词": ""
+    },
+    {
+      "name": "ad-constraint-driven-development",
+      "layer": "第三方",
+      "路径": "agent-skills/skills/ad-constraint-driven-development",
+      "职责": "Establishes a project's quality bar as a written contract and stops agents quietly lowering it. Interviews the user on which dimensions matter, supplies sane default thresholds when they have no number in mind, records everything in CONSTRAINTS.md, and watches the diff for a weakened bar — new @ts-ignore or eslint-disable suppressions, skipped or deleted tests, assertions stripped out, unimplemented stubs, thresholds edited down. Use when no quality bar is written down, when the user says \"set up constraints\" or \"define our standards\", when the user wants dimensions they care about — accessibility, web performance, coverage — set up as enforced constraints, when an agent keeps silencing checks or skipping tests to get to green, when you need a coverage or performance threshold and don't know what number to pick, or when an agent writes more code than anyone will read.",
+      "触发词": ""
+    },
+    {
+      "name": "ad-context-engineering",
+      "layer": "第三方",
+      "路径": "agent-skills/skills/ad-context-engineering",
+      "职责": "Optimizes agent context setup. Use when starting a new session, when agent output quality degrades, when switching between tasks, or when you need to configure rules files and context for a project.",
+      "触发词": ""
+    },
+    {
+      "name": "ad-debugging-and-error-recovery",
+      "layer": "第三方",
+      "路径": "agent-skills/skills/ad-debugging-and-error-recovery",
+      "职责": "Guides systematic root-cause debugging. Use when tests fail, builds break, something that worked yesterday broke, behavior doesn't match expectations, or you encounter any unexpected error. Use when you need to figure out what broke and why — a systematic approach to finding and fixing the root cause rather than guessing.",
+      "触发词": ""
+    },
+    {
+      "name": "ad-deprecation-and-migration",
+      "layer": "第三方",
+      "路径": "agent-skills/skills/ad-deprecation-and-migration",
+      "职责": "Manages deprecation and migration. Use when removing old systems, APIs, or features. Use when migrating users from one implementation to another. Use when migrating a database schema in production, such as renaming or dropping a column without downtime (expand/contract). Use when deciding whether to maintain or sunset existing code.",
+      "触发词": ""
+    },
+    {
+      "name": "ad-documentation-and-adrs",
+      "layer": "第三方",
+      "路径": "agent-skills/skills/ad-documentation-and-adrs",
+      "职责": "Records decisions and documentation. Use when you need to document an architecture decision (ADR) or the reasoning behind a design choice, when changing public APIs, shipping features, or when you need to record context that future engineers and agents will need to understand the codebase.",
+      "触发词": ""
+    },
+    {
+      "name": "ad-doubt-driven-development",
+      "layer": "第三方",
+      "路径": "agent-skills/skills/ad-doubt-driven-development",
+      "职责": "Subjects every non-trivial decision to a fresh-context adversarial review before it stands. Use when you want every assumption cross-examined before proceeding, when stress-testing a plan for hidden failure modes, when correctness matters more than speed, when working in unfamiliar code, when stakes are high (production auth, security-sensitive logic, a high-stakes migration, irreversible operations), or any time a confident output would be cheaper to verify now than to debug later.",
+      "触发词": ""
+    },
+    {
+      "name": "ad-frontend-ui-engineering",
+      "layer": "第三方",
+      "路径": "agent-skills/skills/ad-frontend-ui-engineering",
+      "职责": "Builds production-quality, accessible, responsive user-facing UIs. Use when building or modifying interfaces and pages, creating components, implementing layouts, meeting WCAG accessibility requirements, managing state, or when the output needs to look and feel production-quality rather than AI-generated.",
+      "触发词": ""
+    },
+    {
+      "name": "ad-git-workflow-and-versioning",
+      "layer": "第三方",
+      "路径": "agent-skills/skills/ad-git-workflow-and-versioning",
+      "职责": "Structures git workflow practices. Use when making any code change. Use when committing, branching, resolving conflicts, splitting uncommitted work in a messy working tree into clean atomic commits, opening or reviewing a pull request (PR), pushing to a remote, or when you need to organize work across multiple parallel streams. Use when cutting a release, choosing a semantic version bump, tagging, or writing a changelog.",
+      "触发词": ""
+    },
+    {
+      "name": "ad-idea-refine",
+      "layer": "第三方",
+      "路径": "agent-skills/skills/ad-idea-refine",
+      "职责": "Refines raw ideas into sharp, actionable concepts through structured divergent and convergent thinking. Use when an idea is still vague, when you need to stress-test assumptions before committing to a plan, or when you want to expand options before converging on one. Triggers on \"ideate\", \"refine this idea\", or \"stress-test my plan\".",
+      "触发词": ""
+    },
+    {
+      "name": "ad-incremental-implementation",
+      "layer": "第三方",
+      "路径": "agent-skills/skills/ad-incremental-implementation",
+      "职责": "Delivers changes incrementally in thin, verifiable slices. Use when implementing any feature or change that touches more than one file, or when picking up the next task from a plan. Use when rolling a change out behind a feature flag, when you're about to write a large amount of code at once, or when a task feels too big to land in one step.",
+      "触发词": ""
+    },
+    {
+      "name": "ad-interview-me",
+      "layer": "第三方",
+      "路径": "agent-skills/skills/ad-interview-me",
+      "职责": "Extracts what the user actually wants instead of what they think they should want. Achieves this through one-question-at-a-time interview until ~95% confidence about the underlying intent. Use when an ask is underspecified (\"build me X\" without \"for whom\" or \"why now\"), when the user explicitly invokes (\"interview me\", \"grill me\", \"are we sure?\", \"stress-test my thinking\"), or when you catch yourself silently filling in ambiguous requirements before any plan, spec, or code exists.",
+      "触发词": ""
+    },
+    {
+      "name": "ad-observability-and-instrumentation",
+      "layer": "第三方",
+      "路径": "agent-skills/skills/ad-observability-and-instrumentation",
+      "职责": "Instruments code so production behavior is visible and diagnosable. Use when adding logging, metrics, tracing, or alerting. Use when shipping any feature that runs in production and you need evidence it works. Use when production issues are reported but you can't tell what happened from the available data.",
+      "触发词": ""
+    },
+    {
+      "name": "ad-performance-optimization",
+      "layer": "第三方",
+      "路径": "agent-skills/skills/ad-performance-optimization",
+      "职责": "Optimizes application performance across frontend, backend, queries, and databases. Use when performance requirements exist, when you suspect performance regressions, when Core Web Vitals or load times need improvement, when N+1 query patterns need fixing, or when profiling reveals bottlenecks.",
+      "触发词": ""
+    },
+    {
+      "name": "ad-planning-and-task-breakdown",
+      "layer": "第三方",
+      "路径": "agent-skills/skills/ad-planning-and-task-breakdown",
+      "职责": "Breaks work into ordered tasks. Use when you have a spec or clear requirements and need to break work into implementable tasks. Use when a task feels too large to start, when you need to estimate scope, or when parallel work is possible.",
+      "触发词": ""
+    },
+    {
+      "name": "ad-security-and-hardening",
+      "layer": "第三方",
+      "路径": "agent-skills/skills/ad-security-and-hardening",
+      "职责": "Hardens code against vulnerabilities. Use when auditing an input handler for vulnerabilities, when handling user input, authentication, data storage, or external integrations, or when checking a login flow is safe against the OWASP Top Ten. Use when building any feature that accepts untrusted data, manages user sessions, or interacts with third-party services. Use when auditing dependencies for known vulnerabilities, triaging package-manager audit findings, or assessing supply-chain risk in a new package. Use when personal data or privacy compliance (GDPR, CCPA) is involved.",
+      "触发词": ""
+    },
+    {
+      "name": "ad-shipping-and-launch",
+      "layer": "第三方",
+      "路径": "agent-skills/skills/ad-shipping-and-launch",
+      "职责": "Prepares production launches. Use when preparing to deploy to production, or when asking what needs to be in place before shipping. Use when you need a pre-launch checklist, when setting up monitoring, when planning a staged rollout, or when you need a rollback strategy.",
+      "触发词": ""
+    },
+    {
+      "name": "ad-source-driven-development",
+      "layer": "第三方",
+      "路径": "agent-skills/skills/ad-source-driven-development",
+      "职责": "Grounds every implementation decision in official documentation. Use when you want to verify an approach against the official docs before implementing it, or when you want authoritative, source-cited code free from outdated patterns. Use when building with any framework or library where correctness matters.",
+      "触发词": ""
+    },
+    {
+      "name": "ad-spec-driven-development",
+      "layer": "第三方",
+      "路径": "agent-skills/skills/ad-spec-driven-development",
+      "职责": "Creates specs before coding. Use when starting a new project, feature, or significant change and no specification exists yet. Use when drafting a PRD or requirements document with objectives and scope, or when requirements are unclear, ambiguous, or only exist as a vague idea. Use when a single requirement spans several independently testable capabilities and needs decomposing into a capability map of modules before specifying.",
+      "触发词": ""
+    },
+    {
+      "name": "ad-test-driven-development",
+      "layer": "第三方",
+      "路径": "agent-skills/skills/ad-test-driven-development",
+      "职责": "Drives development with tests using the red-green-refactor loop. Use when implementing any logic, fixing any bug, or changing any behavior. Use when you need to prove that code works, when a bug report arrives, or when you're about to modify existing functionality.",
+      "触发词": ""
+    },
+    {
+      "name": "ad-using-agent-skills",
+      "layer": "第三方",
+      "路径": "agent-skills/skills/ad-using-agent-skills",
+      "职责": "Discovers and invokes agent skills. Use when starting a session, or when you need to decide which skill or workflow applies to the piece of work at hand. This is the meta-skill that governs how all other skills are discovered and invoked.",
+      "触发词": ""
     }
   ]
 }
