@@ -18,16 +18,29 @@ LIST=0
 WORKTREES=0
 
 usage() {
-  sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//'
+  cat >&2 <<'EOF'
+用法：
+  bash install-skills.sh --project <项目根> [--user] [--worktrees] [--check] [--dry-run] [--list] [--prune] [--force]
+  --skills-root <dir>   覆盖源库（默认 $SKILLS_ROOT 或 ~/code/scaffold-skills/skills）
+  --user               装到 ~/.claude/skills（并行工作树的兜底）
+  --worktrees          同时装进该项目的每棵 git worktree
+清单：<项目根>/skills/skills.conf（格式见 templates/skills.conf.tpl）
+退出码：0 全部就绪；1 参数/清单错误；2 有缺失或冲突（--check 同）
+EOF
   exit "${1:-0}"
 }
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    -p|--project) PROJECT="${2:-}"; shift 2 ;;
+    # 带值的选项一律先验 $#：`shift 2` 在 $#=1 时失败但不移位，会 100% CPU 死循环
+    -p|--project)
+      [ $# -ge 2 ] || usage 1
+      PROJECT="$2"; shift 2 ;;
     --user) LEVEL="user"; shift ;;
     --worktrees) WORKTREES=1; shift ;;
-    --skills-root) SKILLS_ROOT="${2:-}"; shift 2 ;;
+    --skills-root)
+      [ $# -ge 2 ] || usage 1
+      SKILLS_ROOT="$2"; shift 2 ;;
     --force) FORCE=1; shift ;;
     --prune) PRUNE=1; shift ;;
     --dry-run) DRY=1; shift ;;
@@ -79,7 +92,10 @@ resolve() {
 # link_all：把清单里的技能链进 $TARGET（$TARGET 由调用方设置）
 link_all() {
   local group="" raw line src dst cur
-  mkdir -p "$TARGET"
+  # --check/--list/--dry-run 都是只读的：连目录都不该建，否则「检查」会顺手改变下一轮的判定
+  if [ "$CHECK" -eq 0 ] && [ "$LIST" -eq 0 ] && [ "$DRY" -eq 0 ]; then
+    mkdir -p "$TARGET"
+  fi
   while IFS= read -r raw || [ -n "$raw" ]; do
     line="${raw%%#*}"
     line="$(printf '%s' "$line" | tr -d '[:space:]')"

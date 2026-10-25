@@ -48,6 +48,11 @@ def load_all():
         rows.append(dict(batch=d.get("batch", os.path.basename(fp)[5:-5]),
                          date=d.get("date", "?"), gates=gates,
                          evidence=level, prov=prov))
+    # 按文件名排会让 b10 排在 b2 前面，「最近状态/红转绿」随之错位。
+    # 先按日期，再按批次名的自然序（数字段当整数比）。
+    rows.sort(key=lambda r: (r["date"],
+                             [(1, int(t)) if t.isdigit() else (0, t)
+                              for t in re.split(r"(\d+)", r["batch"])]))
     return rows, names
 
 
@@ -58,7 +63,9 @@ def render_md(rows, names, max_charts=MAX_CHARTS):
          "| 批次 | 日期 | 证据级 | " + " | ".join(names) + " | 门禁 |",
          "|" + "---|" * (len(names) + 4)]
     for r in rows:
-        cells = [r["gates"].get(n, {}).get("value", "-") if n in r["gates"] else "-" for n in names]
+        # value 里可能含 |（正则本身/命令片段），不转义会把表格撑出多余列
+        cells = [str(r["gates"][n].get("value", "-")).replace("|", "\\|")
+                 if n in r["gates"] else "-" for n in names]
         fail = [n for n in names if r["gates"].get(n, {}).get("status") != "PASS"]
         L.append("| %s | %s | %s | %s | %s |" % (
             r["batch"], r["date"], r["prov"], " | ".join(cells),
@@ -123,7 +130,9 @@ def main():
         fh.write(render_md(rows, names, args.charts))
     print("批次 | 日期 | 证据级 | " + " | ".join(names) + " | 门禁")
     for r in rows:
-        cells = [r["gates"].get(n, {}).get("value", "-") if n in r["gates"] else "-" for n in names]
+        # value 里可能含 |（正则本身/命令片段），不转义会把表格撑出多余列
+        cells = [str(r["gates"][n].get("value", "-")).replace("|", "\\|")
+                 if n in r["gates"] else "-" for n in names]
         fail = [n for n in names if r["gates"].get(n, {}).get("status") != "PASS"]
         print("%s | %s | %s | %s | %s" % (r["batch"][:24], r["date"], r["prov"],
                                           " | ".join(c[:14] for c in cells),

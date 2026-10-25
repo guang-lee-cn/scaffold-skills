@@ -67,7 +67,9 @@ def skill_dirs():
 
 
 def rel(path):
-    return os.path.relpath(path, SKILLS).replace(os.sep, "/")
+    """skills/ 下相对 skills/，其它相对仓库根——否则 scaffold 里的文件打印成 ../scaffold/x"""
+    base = SKILLS if path == SKILLS or path.startswith(SKILLS + os.sep) else REPO
+    return os.path.relpath(path, base).replace(os.sep, "/")
 
 
 def entry_for(dir_path):
