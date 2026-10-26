@@ -91,6 +91,14 @@ resolve() {
   return 1
 }
 
+# link_one <src> <dst>：清单里的名字可以带子目录（review/incident-review），父目录不存在时 ln 会失败
+# 失败必须计入冲突——曾出现「ln 报错但统计显示就绪」的假绿，装没装上不能靠日志里有没有报错来判
+link_one() {
+  local src="$1" dst="$2"
+  mkdir -p "$(dirname "$dst")" || return 1
+  ln -sfn "$src" "$dst"
+}
+
 # link_all：把清单里的技能链进 $TARGET（$TARGET 由调用方设置）
 link_all() {
   local group="" raw line src dst cur
@@ -138,18 +146,22 @@ link_all() {
         continue
       fi
       [ "$DRY" -eq 1 ] && { echo "[重链] $line -> $src"; linked=$((linked+1)); continue; }
-      ln -sfn "$src" "$dst"
-      echo "[重链] $line -> $src"
-      linked=$((linked+1))
+      if link_one "$src" "$dst"; then
+        echo "[重链] $line -> $src"; linked=$((linked+1))
+      else
+        echo "[失败] $line 无法链接到 $dst"; conflict=$((conflict+1))
+      fi
       continue
     fi
 
     if [ -e "$dst" ]; then
       if [ "$FORCE" -eq 1 ] && [ "$DRY" -eq 0 ]; then
         rm -rf "$dst"
-        ln -sfn "$src" "$dst"
-        echo "[覆盖] $line -> $src"
-        linked=$((linked+1))
+        if link_one "$src" "$dst"; then
+          echo "[覆盖] $line -> $src"; linked=$((linked+1))
+        else
+          echo "[失败] $line 无法链接到 $dst"; conflict=$((conflict+1))
+        fi
       else
         echo "[冲突] $dst 已存在且非软链（--force 可覆盖）"
         conflict=$((conflict+1))
@@ -164,12 +176,12 @@ link_all() {
     fi
 
     if [ "$DRY" -eq 1 ]; then
-      echo "[新建] $line -> $src"
+      echo "[新建] $line -> $src"; linked=$((linked+1))
+    elif link_one "$src" "$dst"; then
+      echo "[新建] $line -> $src"; linked=$((linked+1))
     else
-      ln -sfn "$src" "$dst"
-      echo "[新建] $line -> $src"
+      echo "[失败] $line 无法链接到 $dst"; conflict=$((conflict+1))
     fi
-    linked=$((linked+1))
   done < "$MANIFEST"
 
   if [ "$PRUNE" -eq 1 ] && [ "$DRY" -eq 0 ]; then
@@ -178,7 +190,7 @@ link_all() {
       rm -f "$d"
       echo "[清理] 断链 $(basename "$d")"
       pruned=$((pruned+1))
-    done < <(find "$TARGET" -maxdepth 1 -type l ! -exec test -e {} \; -print)
+    done < <(find "$TARGET" -type l ! -exec test -e {} \; -print)
   fi
 }
 
