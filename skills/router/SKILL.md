@@ -63,12 +63,7 @@ description: 派发与路由调度。决定当前阶段该用哪个技能，以�
 
 **并行工作树**：技能装在 `<项目>/.claude/skills` 不会随 worktree 生成。用 `install-skills.sh --worktrees` 或 `--user`，否则执行现场没有规范，派发包里的"必装技能"是空话。
 
-**准则自检（按角色，各一条）**
-
-- 架构师：仓里最近的现有实现是哪个？我怎么让反方来破这条主张？
-- Dev：把这条改动改坏，哪个用例会红？
-- QA：我的判据在改动前的代码上量出来是不是另一个值？
-- 复盘 / 测试 owner：这条结论的唯一落点是哪？有没有副本在漂？
+**准则自检（按角色，各一条）**：架构师 → Reuse First；Dev → Falsifiability；QA → Falsifiability 的「基线」那条；复盘 / 测试 owner → Single Source of Truth。问句原文在 `最高准则.md` 各条「自检」，派发时不复制。
 
 ## 4. 规则冲突
 
