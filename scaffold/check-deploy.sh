@@ -65,6 +65,12 @@ else
   fi
   n="$(grep -c ': <[^>]*>' "$PJ" || true)"
   [ "$n" -gt 0 ] && todo "pj-config.md 还有 $n 个占位没填"
+  # 版本漂移：模板只在 bootstrap 时落盘，脚手架前进后项目里的索引可能已过期
+  rec="$(sed -n 's/^脚手架版本:[[:space:]]*//p' "$PJ" | head -1)"
+  cur="$(git -C "${root:-$REPO}" rev-parse --short HEAD 2>/dev/null || true)"
+  if [ -n "$rec" ] && [ -n "$cur" ] && [ "$rec" != "$cur" ]; then
+    warn "脚手架已更新（pj-config 记 $rec / 当前 $cur）：规范可能变了，核对差异后按需同步"
+  fi
 fi
 
 # 3. 索引里的绝对路径（脚手架移动后最先断的就是这些）
@@ -149,6 +155,14 @@ fi
 # 8. 回流入口与偏离台账
 [ -f "$PROJECT/docs/开发交付/回流候选.md" ] || warn "缺 docs/开发交付/回流候选.md（项目 → 脚手架无回路）"
 [ -f "$PROJECT/docs/开发交付/偏离记录.md" ] || warn "缺 docs/开发交付/偏离记录.md（偏离无台账，收尾无从回灌）"
+
+# 9. 证据链前置：没有仓库 / 没有 commit，run_gate 的 commit 永远为空，一条证据也攒不下
+if ! git -C "$PROJECT" rev-parse --git-dir >/dev/null 2>&1; then
+  warn "不是 git 仓库：门禁 run 拿不到 commit，只能当调试记录（git init -b main 后做首次提交）"
+else
+  n_commit="$(git -C "$PROJECT" rev-list --count HEAD 2>/dev/null || echo 0)"
+  [ "${n_commit:-0}" -eq 0 ] && warn "仓库还没有任何 commit：门禁 run 的 commit 为空，不是证据级"
+fi
 
 echo "---"
 echo "项目: $PROJECT"

@@ -1,27 +1,42 @@
 #!/bin/bash
 # Scaffold 一键部署：骨架 + 占位 + 技能装载 + 自检
-# 用法：bash bootstrap.sh <项目名> [目标目录] [--force] [--no-skills]
+# 用法：bash bootstrap.sh <项目名> [目标目录] [--force] [--no-skills] [--no-git]
 # 原则：公共流程与规范不在项目里复制副本，只留一份并在项目里放索引
 # 幂等：已存在的项目文件一律保留（重跑不会覆盖台账/状态/配置）；--force 才用模板覆盖
+# 工作区：目标不在任何仓库内时自动 git init -b main（--no-git 跳过）；不代做首次提交
 set -euo pipefail
 SCAFFOLD="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$SCAFFOLD/.." && pwd)"
-NAME=""; DEST=""; FORCE=0; WITH_SKILLS=1
+NAME=""; DEST=""; FORCE=0; WITH_SKILLS=1; WITH_GIT=1
 while [ $# -gt 0 ]; do
   case "$1" in
     --force) FORCE=1; shift ;;
     --no-skills) WITH_SKILLS=0; shift ;;
-    -h|--help) sed -n '2,5p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --no-git) WITH_GIT=0; shift ;;
+    -h|--help) sed -n '2,6p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     -*) echo "未知参数: $1" >&2; exit 1 ;;
     *) if [ -z "$NAME" ]; then NAME="$1"; else DEST="$1"; fi; shift ;;
   esac
 done
-[ -n "$NAME" ] || { echo "用法: bash bootstrap.sh <项目名> [目标目录] [--force] [--no-skills]"; exit 1; }
+[ -n "$NAME" ] || { echo "用法: bash bootstrap.sh <项目名> [目标目录] [--force] [--no-skills] [--no-git]"; exit 1; }
 DEST="${DEST:-$PWD/$NAME}"
 mkdir -p "$DEST"
 DEST="$(cd "$DEST" && pwd)"
 SCAFFOLD_REV="$(git -C "$REPO" rev-parse --short HEAD 2>/dev/null || echo unknown)"
 written=0; kept=0
+
+# 工作区。先判「目标在不在某个仓库里」：rev-parse 会向上找，光看 --git-dir 会把外层仓库当成自己的。
+# 不做首次提交：提交是本项目第一次变更，留给用户/架构师，命令打在末尾的下一步里。
+if [ "$WITH_GIT" -eq 1 ]; then
+  top="$(git -C "$DEST" rev-parse --show-toplevel 2>/dev/null || true)"
+  if [ -z "$top" ]; then
+    git -C "$DEST" init -q -b main
+    echo "[写入] git 仓库（分支 main）"
+  elif [ "$top" != "$DEST" ]; then
+    echo "[保留] 已在仓库 $top 内，跳过 git init"
+  fi
+fi
+BRANCH="$(git -C "$DEST" symbolic-ref --short HEAD 2>/dev/null || echo '<branch>')"
 
 put() {  # put <源文件> <目标> [x]
   local src="$1" dst="$2" mode="${3:-}"
@@ -59,7 +74,7 @@ gen "$DEST/pj-config.md" <<EOF
 
 项目名: $NAME
 仓库: <git remote>
-分支/基线: <branch>
+分支/基线: $BRANCH
 账号/身份: <no-identity-不提交>
 里程碑: <M0-M7 占位>
 SCAFFOLD_ROOT: $REPO
@@ -70,6 +85,14 @@ SCAFFOLD_ROOT: $REPO
 执行形态: <单检出 | git worktree 并行（需 install-skills.sh --worktrees）>
 环境类型: <wsl2 | linux-desktop | ssh-remote>（决定 tool-bridge.md 走哪条分支）
 EOF
+
+# pj-config 保留（重跑）时只刷新版本行：这一行是布设快照，不是项目内容。
+# 不刷新的话 check-deploy 的「脚手架已更新」警告会永久挂着，警告就被训练成噪声。
+PJ_FILE="$DEST/pj-config.md"
+if grep -q '^脚手架版本:' "$PJ_FILE"; then
+  sed "s|^脚手架版本:.*|脚手架版本: $SCAFFOLD_REV|" "$PJ_FILE" > "$PJ_FILE.tmp" \
+    && mv "$PJ_FILE.tmp" "$PJ_FILE"
+fi
 
 # ── 项目技能清单（唯一权威）
 put "$SCAFFOLD/templates/skills.conf.tpl" "$DEST/skills/skills.conf"
@@ -115,7 +138,7 @@ gen "$DEST/docs/开发交付/工程流程.md" <<EOF
 | Token 纪律 | \`$REPO/scaffold/policies/token纪律.md\` |
 | 调研先行与外部案例库 | \`$REPO/scaffold/policies/调研先行.md\` |
 | 跨环境文件操作与命令执行（wsl2 / 本地 / 远程） | \`$REPO/scaffold/policies/tool-bridge.md\` |
-| 规范该写什么（约束/判据/手段）与 DoD 四块 | \`$REPO/scaffold/policies/约束与判据.md\` |
+| 规范该写什么（约束/判据/手段）、DoD 四块、规则的准入与退役 | \`$REPO/scaffold/policies/约束与判据.md\` |
 | 角色规范骨架（Dev / QA） | \`$REPO/scaffold/templates/角色规范-Dev.tpl\`、\`角色规范-QA.tpl\` |
 | 提交信息格式 | \`$REPO/scaffold/policies/commit信息.md\` |
 | 技能写作原则 | \`$REPO/scaffold/skills/skill-writing-principles.md\` |
@@ -136,6 +159,13 @@ elif ! grep -qx '/.claude/skills/' "$GI"; then
   printf '\n/.claude/skills/\n' >> "$GI"; echo "[追加] .gitignore: /.claude/skills/"; written=$((written+1))
 fi
 
+# ── 首批工作目录：计划 / 日志 / 交接 / 评审各就各位，省得每个角色自己发明路径
+BATCH_DATE="$(date +%F)"
+for sub in 计划 日志 交接 评审; do
+  mkdir -p "$DEST/docs/开发交付/$BATCH_DATE/$sub"
+done
+echo "[写入] docs/开发交付/$BATCH_DATE/{计划,日志,交接,评审}"
+
 echo "=== Scaffold 布设：$DEST（写入 $written / 保留 $kept）==="
 
 if [ "$WITH_SKILLS" -eq 1 ]; then
@@ -148,6 +178,12 @@ bash "$SCAFFOLD/check-deploy.sh" --project "$DEST" || true
 
 echo "下一步:"
 echo "  1) 填 pj-config.md 的 <占位>"
-echo "  2) 填 quality/gates.conf（换成本项目真实命令）"
-echo "  3) bash quality/run_gate.sh <batch标记> 试跑首个批次"
-echo "  4) 让 AI 从项目根 CLAUDE.md 开始读"
+echo "  2) 填 quality/gates.conf（换成本项目真实命令；示例是 C++ 口径）"
+if [ "$WITH_GIT" -eq 1 ]; then
+  echo "  3) git add -A && git commit -m 'chore(scaffold): bootstrap' —— 门禁只认有 commit 的干净树"
+  echo "  4) bash quality/run_gate.sh <batch标记> 试跑首个批次"
+  echo "  5) 让 AI 从项目根 CLAUDE.md 开始读"
+else
+  echo "  3) bash quality/run_gate.sh <batch标记> 试跑首个批次（非 git 项目：run 只能当调试记录）"
+  echo "  4) 让 AI 从项目根 CLAUDE.md 开始读"
+fi
