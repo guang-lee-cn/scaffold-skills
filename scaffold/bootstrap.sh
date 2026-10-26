@@ -113,6 +113,7 @@ put "$SCAFFOLD/templates/角色规范-QA.tpl"  "$DEST/docs/开发交付/角色�
 
 # ── 运作模板（不落盘的项目会自己发明第八种格式）：只给骨架，填不填随项目
 put "$SCAFFOLD/templates/任务卡.tpl"       "$DEST/docs/开发交付/模板/任务卡.md"
+put "$SCAFFOLD/templates/thread.md.tpl"    "$DEST/docs/开发交付/模板/卡线程.md"
 put "$SCAFFOLD/templates/QA评审报告.tpl"   "$DEST/docs/开发交付/模板/QA评审报告.md"
 put "$SCAFFOLD/templates/Dev交接.tpl"      "$DEST/docs/开发交付/模板/Dev交接.md"
 put "$SCAFFOLD/templates/复盘报告.tpl"     "$DEST/docs/开发交付/模板/复盘报告.md"
