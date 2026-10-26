@@ -1,10 +1,11 @@
 #!/bin/bash
 # 数据飞轮-采集环（Scaffold 通用门禁）：逐门禁执行 gates.conf → quality/gate-<batch>.json
-# 用法：bash quality/run_gate.sh [batch标记]   # 批标记默认 日期-commit
+# 用法：bash quality/run_gate.sh [batch标记] [--allow-dirty]   # 批标记默认 日期-commit
 # 依赖：bash + git(可选) + python3 + grep（零外部工具）
 # 正则口径：POSIX ERE，数字写 [0-9]（\d 在 GNU grep 下未定义，会静默取不到值）
 # 格式：name|命令|取数正则(可选)；命令自身含 | 会被当成第三列（需要管道就包一层脚本）
 # 证据级：git.dirty == 0 且 commit 非空，本次 run 才算证据；否则只能当调试记录
+# 脏树在开跑前直接拒绝（exit 2）：跑完再警告等于白跑一趟，而门禁要的是证据不是全绿
 set -u
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"   # <项目根>/quality
 ROOT="$(cd "$DIR/.." && pwd)"                          # <项目根>
@@ -12,10 +13,38 @@ CFG="$DIR/gates.conf"
 QUALITY="$DIR"
 TMP="$DIR/.gates.tmp"
 [ -f "$CFG" ] || { echo "缺 gates.conf（参考 gates.conf.example 生成）"; exit 1; }
+
+# 参数：唯一位置参数是批标记，--allow-dirty 只影响开跑前这一道判树
+ALLOW_DIRTY=0
+BATCH=""
+for arg in "$@"; do
+  case "$arg" in
+    --allow-dirty) ALLOW_DIRTY=1 ;;
+    *) [ -z "$BATCH" ] && BATCH="$arg" ;;
+  esac
+done
+[ -n "$BATCH" ] || BATCH="$(date +%F)-$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+
+# 开跑前判树。例外只放采集环自己的产物（与末尾 python 的 own() 同一份清单）；
+# 取不到 git 状态时（非 git 项目）不拦，由末尾按 commit 空 / dirty=-1 记非证据级。
+RELQ="${QUALITY#"$ROOT"/}"
+if [ "$ALLOW_DIRTY" -eq 0 ] && git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1; then
+  relq_re="$(printf '%s' "$RELQ" | sed 's/[][\\.^$*+?(){}|]/\\&/g')"
+  dirty_list="$(git -C "$ROOT" status --porcelain --untracked-files=normal 2>/dev/null \
+    | sed -e 's/^...//' \
+    | grep -v -E "^\"?${relq_re}/(\.gates\.tmp|trend\.md|gate-[^\"]*\.json)\"?$" || true)"
+  if [ -n "$dirty_list" ]; then
+    echo "[STOP] 工作树不干净，拒绝开跑：脏树上的 run 只能当调试记录，而门禁要的是证据"
+    printf '%s\n' "$dirty_list" | head -10 | sed 's/^/  /'
+    n="$(printf '%s\n' "$dirty_list" | wc -l)"
+    [ "$n" -gt 10 ] && echo "  …（共 $n 处）"
+    echo "  处理：先提交或收拾这些路径；确要调试，加 --allow-dirty（该 run 记 dirty>0，不能当证据）"
+    exit 2
+  fi
+fi
+
 mkdir -p "$QUALITY"
 : > "$TMP"
-
-BATCH="${1:-$(date +%F)-$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)}"
 count=0
 fails=0
 
