@@ -26,6 +26,7 @@ bad()  { echo "[错误] $*"; errs=$((errs+1)); }
 todo() { echo "[待办] $*"; todos=$((todos+1)); }
 
 DOCS="$PROJECT/docs/开发交付"
+PROG="$DOCS/进度.md"
 
 # ── 门禁前置：上一批没关门，这一批就没法开工 ─────────────────────────────────
 # 为什么放在门禁里而不是写在 SOP 里：全自动流程没有外部触发者，「记得复盘」不可执行；
@@ -36,7 +37,6 @@ DOCS="$PROJECT/docs/开发交付"
 #   · 最后一行是当前批：`进行中` 放行（批内要跑门禁），`待复盘` 拦下（活干完了，先关批）。
 # 早期版本把任何非「已关闭」都算未关，结果是批内第一次跑门禁就红，规则本身不可用。
 if [ "$GATE_BATCHES" -eq 1 ]; then
-  PROG="$DOCS/进度.md"
   if [ -f "$PROG" ]; then
     rows="$(awk -F'|' '
       /^## 批次/ {f=1; next}
@@ -91,12 +91,66 @@ fi
 [ -n "$BATCH" ] || { bad "找不到批次目录（$DOCS 下没有 20xx-xx-xx）"; echo "---"; echo "错误 $errs / 待办 $todos"; exit 2; }
 
 # 1. 复盘报告：批末必须有一份，且规则命中表填了
-RETRO=""
-for f in "$BATCH/复盘报告.md" "$BATCH/review/复盘报告.md" "$BATCH/评审/复盘报告.md"; do
-  [ -f "$f" ] && RETRO="$f" && break
-done
-if [ -z "$RETRO" ]; then
-  bad "批次 $BATCH 没有复盘报告（模板：docs/开发交付/模板/复盘报告.md）——没有它，规则命中表与退役都是空话"
+#
+# 路径以批次表为准：同一天可以有两批，两条批次行都写在同一个日期目录里。
+# 只按「日期目录/复盘报告.md」找，第二批会拿到第一批的报告——校验照样通过，内容却是别人的。
+# 所以先看批次表最后一行的「复盘」列：给了路径就以它为准，给了却不存在就是错，不退回猜测。
+RETRO=""; last_state=""; report_error=0
+if [ -f "$PROG" ]; then
+  last_row="$(awk -F'|' '
+    /^## 批次/ {f=1; next}
+    /^## /     {f=0}
+    f && /^\|/ && $0 !~ /^\|[-|[:space:]]+\|$/ && $2 !~ /批次/ {
+      s=$5; r=$6
+      gsub(/^[ \t]+|[ \t]+$/, "", s); gsub(/^[ \t]+|[ \t]+$/, "", r)
+      ls=s; lr=r
+    }
+    END { print (ls == "" ? "" : ls) "\t" (lr == "" ? "" : lr) }' "$PROG")"
+  last_state="$(printf '%s' "$last_row" | cut -f1)"
+  last_retro="$(printf '%s' "$last_row" | cut -f2)"
+  # 复盘列允许写成 `路径`（附注）：取反引号里的路径；没写反引号的裸路径也认。
+  retro_rel="$(printf '%s' "$last_retro" | awk -F'`' 'NF > 1 { print $2; exit }')"
+  if [ -z "$retro_rel" ]; then
+    case "$last_retro" in
+      ''|—|-|无|无（*|无\(*) : ;;
+      *) retro_rel="$last_retro" ;;
+    esac
+  fi
+  if [ -n "$retro_rel" ]; then
+    if [ -f "$DOCS/$retro_rel" ]; then
+      RETRO="$DOCS/$retro_rel"
+    elif [ -f "$PROJECT/$retro_rel" ]; then
+      RETRO="$PROJECT/$retro_rel"
+    else
+      bad "批次表最后一行的复盘路径不存在：$retro_rel（路径以该列为准，改了文件名就要同步这一列）"
+      report_error=1
+    fi
+  elif [ "$last_state" = "已关闭" ]; then
+    bad "最后一批已标「已关闭」，但复盘列没有可点的报告路径——补上该批报告路径（相对 docs/开发交付/）后重跑"
+    report_error=1
+  elif [ "$last_state" = "待复盘" ]; then
+    # 待复盘的含义就是「活干完了，报告还没写完」：这一列的路径是关批的唯一凭据，
+    # 空着就会在关批那一刻才发现无凭可依，所以在待复盘阶段就要它。
+    bad "最后一批已标「待复盘」，但复盘列没有报告路径——待复盘到已关闭之间唯一要做的事就是填它"
+    report_error=1
+  fi
+fi
+if [ -z "$last_state" ]; then
+  # 向后兼容：没有批次表（老项目）时才按固定文件名找；命中要说明这是回退，不是权威路径。
+  for f in "$BATCH/复盘报告.md" "$BATCH/review/复盘报告.md" "$BATCH/评审/复盘报告.md"; do
+    [ -n "$RETRO" ] && break
+    [ -f "$f" ] && RETRO="$f"
+  done
+  [ -n "$RETRO" ] && echo "[提示] 复盘报告以回退路径取到（${RETRO#"$DOCS"/}），进度表的复盘列没填——建议补上权威路径"
+fi
+
+if [ "$last_state" = "进行中" ]; then
+  # 进行中的批次还没有报告可读：要求它存在等于逼人提前写一份假报告，
+  # 或者把上一批的报告复制过来（两者都会让下面的内容校验变成空话）。
+  echo "[跳过] 本批（$BATCH）进行中，不要求复盘报告"
+elif [ -z "$RETRO" ]; then
+  # 上面已按批次表的状态报过「没有路径」，不要再用另一句话说同一件事。
+  [ "$report_error" -eq 1 ] || bad "批次 $BATCH 没有复盘报告（模板：docs/开发交付/模板/复盘报告.md）——没有它，规则命中表与退役都是空话"
 else
   if ! grep -q '^## 规则命中表' "$RETRO"; then
     bad "$(basename "$RETRO") 缺「规则命中表」一节：不知道哪条规则这轮真的挡过东西"
