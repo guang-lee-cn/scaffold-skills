@@ -72,7 +72,9 @@ case "$SUBJECT" in
 esac
 
 # ── 3. 禁项：署名、生成器、需要解码表的内部编号 ────────────────────────────
-if printf '%s\n' "$MSG" | grep -Eqi 'co-authored-by:|generated with|claude|anthropic|🤖'; then
+# 只匹配署名形态，不匹配裸词：项目入口文件本身就叫 CLAUDE.md，按裸词匹配会把
+# 「更新 CLAUDE.md」这类提交判成 AI 署名，被拒的人只能删字或 --no-verify 绕过。
+if printf '%s\n' "$MSG" | grep -Eqi 'co-authored-by:|generated with|claude[ -]code|anthropic|🤖'; then
   err "提交信息里出现 AI 署名或生成器标记（本仓禁止）"
 fi
 # 标题里一律不出现内部代号：标题是给「没有解码表的人」看的第一行。
