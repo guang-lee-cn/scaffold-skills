@@ -27,25 +27,57 @@ todo() { echo "[待办] $*"; todos=$((todos+1)); }
 
 DOCS="$PROJECT/docs/开发交付"
 
-# ── 门禁前置：批次表里还有没关闭的批次，就不许开下一批 ───────────────────────
+# ── 门禁前置：上一批没关门，这一批就没法开工 ─────────────────────────────────
 # 为什么放在门禁里而不是写在 SOP 里：全自动流程没有外部触发者，「记得复盘」不可执行；
-# 「下一批第一次跑门禁必然失败」才可执行。表不存在或为空 = 还没开始分批次，放行。
+# 「这一批第一次跑门禁必然失败」才可执行。表不存在或为空 = 还没开始分批次，放行。
+#
+# 判据分两段，别把「进行中」也拦掉：
+#   · 除最后一行外，全部必须「已关闭」——这就是「上一批没关，下一批起不来」；
+#   · 最后一行是当前批：`进行中` 放行（批内要跑门禁），`待复盘` 拦下（活干完了，先关批）。
+# 早期版本把任何非「已关闭」都算未关，结果是批内第一次跑门禁就红，规则本身不可用。
 if [ "$GATE_BATCHES" -eq 1 ]; then
   PROG="$DOCS/进度.md"
   if [ -f "$PROG" ]; then
-    open_rows="$(awk -F'|' '
+    rows="$(awk -F'|' '
       /^## 批次/ {f=1; next}
       /^## /    {f=0}
       f && /^\|/ && $0 !~ /^\|[-|[:space:]]+\|$/ && $2 !~ /批次/ {
-        s=$5; gsub(/^[ \t]+|[ \t]+$/, "", s)
-        if (s != "已关闭") { b=$2; gsub(/^[ \t]+|[ \t]+$/, "", b); print b " (" s ")" }
+        b=$2; s=$5
+        gsub(/^[ \t]+|[ \t]+$/, "", b); gsub(/^[ \t]+|[ \t]+$/, "", s)
+        print b "\t" s
       }' "$PROG")"
-    if [ -n "$open_rows" ]; then
-      bad "批次未关闭就开新批：$(printf '%s' "$open_rows" | tr '\n' ' ')"
-      bad "先跑完当前批的关批仪式（复盘报告 + 批次指标 + 规则命中表 + check-flywheel.sh 退出 0），把批次行改成「已关闭」"
-      echo "---"; echo "错误 $errs / 待办 $todos"; exit 2
+    if [ -n "$rows" ]; then
+      total="$(printf '%s\n' "$rows" | grep -c '' || true)"
+      i=0
+      blocked=0
+      while IFS="$(printf '\t')" read -r label state; do
+        i=$((i + 1))
+        if [ "$i" -lt "$total" ]; then
+          if [ "$state" != "已关闭" ]; then
+            bad "更早的批次还没关闭：$label（$state）"
+            blocked=1
+          fi
+        else
+          case "$state" in
+            进行中|已关闭) : ;;
+            待复盘)
+              bad "最后一批「$label」在待复盘：先把复盘报告写完、批次行改成「已关闭」再跑门禁"
+              blocked=1 ;;
+            *)
+              bad "最后一批「$label」状态无法识别：$state（只允许 进行中/待复盘/已关闭）"
+              blocked=1 ;;
+          esac
+        fi
+      done <<EOF
+$rows
+EOF
+      if [ "$blocked" -ne 0 ]; then
+        echo "---"; echo "错误 $errs / 待办 $todos"; exit 2
+      fi
+      echo "[通过] 更早批次均已关闭，当前批「$(printf '%s\n' "$rows" | tail -1 | cut -f1)」状态允许跑门禁"
+    else
+      echo "[通过] 批次表还没有数据行（首批属正常）"
     fi
-    echo "[通过] 批次表无未关闭批次"
   else
     todo "没有进度.md 的批次表，跳过批次门禁（新项目首批属正常）"
   fi
