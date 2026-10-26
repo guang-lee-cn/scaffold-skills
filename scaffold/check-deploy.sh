@@ -187,6 +187,25 @@ else
   [ "${n_commit:-0}" -eq 0 ] && warn "仓库还没有任何 commit：门禁 run 的 commit 为空，不是证据级"
 fi
 
+# 10. 两个飞轮闸门：批次表 + 提交信息钩子。缺了它们，复盘与提交规范都只剩文档
+[ -f "$PROJECT/quality/check-flywheel.sh" ] \
+  || bad "缺 quality/check-flywheel.sh：run_gate 的批次前置会静默跳过，飞轮退回靠记性"
+[ -f "$PROJECT/quality/commit-lint.sh" ] \
+  || warn "缺 quality/commit-lint.sh：提交信息规范没有执行路径"
+if git -C "$PROJECT" rev-parse --git-dir >/dev/null 2>&1; then
+  top="$(git -C "$PROJECT" rev-parse --show-toplevel 2>/dev/null || true)"
+  if [ "$top" = "$PROJECT" ]; then
+    if [ ! -x "$PROJECT/.git/hooks/commit-msg" ]; then
+      warn "未安装 .git/hooks/commit-msg：提交信息检查不会自动跑（重新跑 bootstrap 可装）"
+    elif ! grep -q 'commit-lint\.sh' "$PROJECT/.git/hooks/commit-msg" 2>/dev/null; then
+      warn ".git/hooks/commit-msg 存在但没调 commit-lint.sh（可能是项目自己的钩子）"
+    fi
+  fi
+fi
+if [ -f "$PROG" ]; then
+  grep -q '^## 批次' "$PROG" || bad "进度.md 缺「批次」一节：run_gate 的批次前置无表可读，飞轮不会自动转"
+fi
+
 echo "---"
 echo "项目: $PROJECT"
 echo "错误 $errs / 待办 $todos / 警告 $warns"

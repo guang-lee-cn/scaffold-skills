@@ -63,6 +63,9 @@ gen() {  # gen <目标>  —— 内容从 stdin 读；存在即保留（先吃�
 put "$SCAFFOLD/quality/run_gate.sh.tpl"     "$DEST/quality/run_gate.sh" x
 put "$SCAFFOLD/quality/aggregate_quality.py" "$DEST/quality/aggregate_quality.py" x
 put "$SCAFFOLD/quality/gates.conf.example"  "$DEST/quality/gates.conf"
+# 飞轮闸门跟门禁一起落在项目里：run_gate 开跑前要它判批次表，它自己也得能被关批时直接调
+put "$SCAFFOLD/check-flywheel.sh"           "$DEST/quality/check-flywheel.sh" x
+put "$SCAFFOLD/quality/commit-lint.sh"      "$DEST/quality/commit-lint.sh" x
 
 # ── 项目参数唯一落点
 gen "$DEST/pj-config.md" <<EOF
@@ -154,7 +157,9 @@ gen "$DEST/docs/开发交付/工程流程.md" <<EOF
 - 项目自有技能：\`skills/skills.conf\` 的 \`[project]\` 段
 - 回流候选：\`回流候选.md\`（项目 → 脚手架的唯一入口）
 - 进度：\`进度.md\`（卡片状态唯一落点；发卡加行、关卡拉证据）
-- 批末飞轮自检：\`bash $REPO/scaffold/check-flywheel.sh --project .\`（复盘 + 规则命中表 + 批次指标 + 回流裁决，非 0 不得关批）
+- 批末飞轮自检：\`bash quality/check-flywheel.sh --project .\`（复盘 + 规则命中表 + 批次指标 + 回流裁决，非 0 不得关批）
+- 批次门禁：\`quality/run_gate.sh\` 开跑前查 \`进度.md\` 的批次表，上一批没关闭就拒绝（exit 3）——飞轮靠这条强制转
+- 提交信息检查：\`.git/hooks/commit-msg\` → \`quality/commit-lint.sh\`（格式 / 分条上限 / 禁代号与署名）
 EOF
 
 # ── 装载产物不入库
@@ -163,6 +168,26 @@ if [ ! -f "$GI" ]; then
   printf '/.claude/skills/\n' > "$GI"; echo "[写入] .gitignore"; written=$((written+1))
 elif ! grep -qx '/.claude/skills/' "$GI"; then
   printf '\n/.claude/skills/\n' >> "$GI"; echo "[追加] .gitignore: /.claude/skills/"; written=$((written+1))
+fi
+
+# ── 提交信息检查装进 git 钩子：规则进不了执行路径，就等于没有规则 ────────────
+if [ "$WITH_GIT" -eq 1 ]; then
+  top="$(git -C "$DEST" rev-parse --show-toplevel 2>/dev/null || true)"
+  if [ "$top" = "$DEST" ]; then
+    HOOK="$DEST/.git/hooks/commit-msg"
+    if [ -e "$HOOK" ] && ! grep -q 'commit-lint\.sh' "$HOOK" 2>/dev/null; then
+      echo "[保留] .git/hooks/commit-msg（已存在且不是本脚手架装的，不覆盖）"
+    else
+      mkdir -p "$DEST/.git/hooks"
+      cat > "$HOOK" <<'HOOKEOF'
+#!/bin/bash
+# 由 scaffold bootstrap 安装：提交信息检查（规则见 policies/commit信息.md）
+exec bash "$(git rev-parse --show-toplevel)/quality/commit-lint.sh" "$1"
+HOOKEOF
+      chmod +x "$HOOK"
+      echo "[写入] .git/hooks/commit-msg（提交信息检查）"
+    fi
+  fi
 fi
 
 # ── 首批工作目录：计划 / 日志 / 交接 / 评审各就各位，省得每个角色自己发明路径
