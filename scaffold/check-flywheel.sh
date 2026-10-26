@@ -1,17 +1,20 @@
 #!/bin/bash
 # 飞轮自检：批次关闭时问三个问题——复盘写了吗、规则命中表填了吗、回流候选裁决了吗
 # 用法：bash check-flywheel.sh --project <项目根> [--batch <日期目录>]
+#       bash check-flywheel.sh --project <项目根> --gate-batches   # 门禁前置：上一批没关就不许开下一批
 # 判据：错误 = 飞轮这轮没转（下一轮脚手架不会变好）；待办 = 有零命中规则等着退役
 # 退出码：0 无错误；2 有错误；1 参数错误
 set -uo pipefail
-PROJECT=""; BATCH=""
+PROJECT=""; BATCH=""; GATE_BATCHES=0
+usage() { sed -n '2,6p' "$0" | sed 's/^# \{0,1\}//'; }
 while [ $# -gt 0 ]; do
   case "$1" in
-    -p|--project) [ $# -ge 2 ] || { echo "用法: bash check-flywheel.sh --project <项目根> [--batch <日期目录>]" >&2; exit 1; }
+    -p|--project) [ $# -ge 2 ] || { usage >&2; exit 1; }
                   PROJECT="$2"; shift 2 ;;
-    -b|--batch)   [ $# -ge 2 ] || { echo "用法: bash check-flywheel.sh --project <项目根> [--batch <日期目录>]" >&2; exit 1; }
+    -b|--batch)   [ $# -ge 2 ] || { usage >&2; exit 1; }
                   BATCH="$2"; shift 2 ;;
-    -h|--help)    sed -n '2,5p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --gate-batches) GATE_BATCHES=1; shift ;;
+    -h|--help)    usage; exit 0 ;;
     *) echo "未知参数: $1" >&2; exit 1 ;;
   esac
 done
@@ -23,6 +26,32 @@ bad()  { echo "[错误] $*"; errs=$((errs+1)); }
 todo() { echo "[待办] $*"; todos=$((todos+1)); }
 
 DOCS="$PROJECT/docs/开发交付"
+
+# ── 门禁前置：批次表里还有没关闭的批次，就不许开下一批 ───────────────────────
+# 为什么放在门禁里而不是写在 SOP 里：全自动流程没有外部触发者，「记得复盘」不可执行；
+# 「下一批第一次跑门禁必然失败」才可执行。表不存在或为空 = 还没开始分批次，放行。
+if [ "$GATE_BATCHES" -eq 1 ]; then
+  PROG="$DOCS/进度.md"
+  if [ -f "$PROG" ]; then
+    open_rows="$(awk -F'|' '
+      /^## 批次/ {f=1; next}
+      /^## /    {f=0}
+      f && /^\|/ && $0 !~ /^\|[-|[:space:]]+\|$/ && $2 !~ /批次/ {
+        s=$5; gsub(/^[ \t]+|[ \t]+$/, "", s)
+        if (s != "已关闭") { b=$2; gsub(/^[ \t]+|[ \t]+$/, "", b); print b " (" s ")" }
+      }' "$PROG")"
+    if [ -n "$open_rows" ]; then
+      bad "批次未关闭就开新批：$(printf '%s' "$open_rows" | tr '\n' ' ')"
+      bad "先跑完当前批的关批仪式（复盘报告 + 批次指标 + 规则命中表 + check-flywheel.sh 退出 0），把批次行改成「已关闭」"
+      echo "---"; echo "错误 $errs / 待办 $todos"; exit 2
+    fi
+    echo "[通过] 批次表无未关闭批次"
+  else
+    todo "没有进度.md 的批次表，跳过批次门禁（新项目首批属正常）"
+  fi
+  exit 0
+fi
+
 # 批次目录：显式指定 > 最新的 20xx-xx-xx 目录
 if [ -z "$BATCH" ]; then
   BATCH="$(find "$DOCS" -maxdepth 1 -type d -name '20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]' 2>/dev/null | sort | tail -1)"

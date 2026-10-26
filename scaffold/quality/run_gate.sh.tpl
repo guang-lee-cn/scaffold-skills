@@ -1,6 +1,6 @@
 #!/bin/bash
 # 数据飞轮-采集环（Scaffold 通用门禁）：逐门禁执行 gates.conf → quality/gate-<batch>.json
-# 用法：bash quality/run_gate.sh [batch标记] [--allow-dirty]   # 批标记默认 日期-commit
+# 用法：bash quality/run_gate.sh [batch标记] [--allow-dirty] [--allow-open-batches]   # 批标记默认 日期-commit
 # 依赖：bash + git(可选) + python3 + grep（零外部工具）
 # 正则口径：POSIX ERE，数字写 [0-9]（\d 在 GNU grep 下未定义，会静默取不到值）
 # 格式：name|命令|取数正则(可选)；命令自身含 | 会被当成第三列（需要管道就包一层脚本）
@@ -14,12 +14,15 @@ QUALITY="$DIR"
 TMP="$DIR/.gates.tmp"
 [ -f "$CFG" ] || { echo "缺 gates.conf（参考 gates.conf.example 生成）"; exit 1; }
 
-# 参数：唯一位置参数是批标记，--allow-dirty 只影响开跑前这一道判树
+# 参数：唯一位置参数是批标记。--allow-dirty 只影响开跑前这一道判树；
+# --allow-open-batches 只影响批次表前置（上一批没关也照跑，用于新项目接手旧进度表）
 ALLOW_DIRTY=0
+ALLOW_OPEN_BATCHES=0
 BATCH=""
 for arg in "$@"; do
   case "$arg" in
     --allow-dirty) ALLOW_DIRTY=1 ;;
+    --allow-open-batches) ALLOW_OPEN_BATCHES=1 ;;
     *) [ -z "$BATCH" ] && BATCH="$arg" ;;
   esac
 done
@@ -40,6 +43,16 @@ if [ "$ALLOW_DIRTY" -eq 0 ] && git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&
     [ "$n" -gt 10 ] && echo "  …（共 $n 处）"
     echo "  处理：先提交或收拾这些路径；确要调试，加 --allow-dirty（该 run 记 dirty>0，不能当证据）"
     exit 2
+  fi
+fi
+
+# 开跑前判批次表：上一批没关闭（复盘没跑），这一批的门禁就不起来。
+# 这是飞轮唯一的强制触发点——全自动流程没有外部提醒，「记得复盘」不是可执行规则，
+# 「下一批第一次跑门禁必然失败」才是。它只读文件，不跑任何门禁。
+if [ "$ALLOW_OPEN_BATCHES" -eq 0 ] && [ -f "$DIR/check-flywheel.sh" ]; then
+  if ! bash "$DIR/check-flywheel.sh" --project "$ROOT" --gate-batches; then
+    echo "  处理：先关上一批（复盘报告 + 批次指标 + 规则命中表），或加 --allow-open-batches 显式跳过"
+    exit 3
   fi
 fi
 
