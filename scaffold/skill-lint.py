@@ -79,10 +79,8 @@ def entry_for(dir_path):
     parts = re.split(r"触发词：|触发：|Trigger phrases[:：]", desc, maxsplit=1)
     body = parts[0]
     trig = parts[1].rstrip("。. ") if len(parts) > 1 else ""
-    third_party = rel(dir_path).startswith("agent-skills/")
     entry = {
         "name": name,
-        "layer": "第三方" if third_party else "通用",
         "路径": rel(dir_path),
         "职责": body.strip().rstrip("。"),
         "触发词": trig,
@@ -91,8 +89,7 @@ def entry_for(dir_path):
 
 
 def build_catalog():
-    entries = [entry_for(d) for d in skill_dirs()]
-    entries.sort(key=lambda e: (e["layer"] != "通用", e["name"]))
+    entries = sorted((entry_for(d) for d in skill_dirs()), key=lambda e: e["name"])
     return {
         "version": "0.3",
         "说明": "L0 Router 数据源，由 scaffold/skill-lint.py --write 生成，不要手改。"
@@ -117,9 +114,6 @@ def check_frontmatter():
         for key in ("name", "description"):
             if not fm.get(key):
                 errs.append(f"{rel(p)}: frontmatter 缺 {key}")
-        if rel(p).startswith("agent-skills/"):
-            # 第三方包不改内容：只要求能被解析出 name / description
-            continue
         desc = fm.get("description", "")
         if "触发" not in desc:
             warns.append(f"{rel(p)}: description 无触发词，只能按名调用")

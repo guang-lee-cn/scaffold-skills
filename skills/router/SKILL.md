@@ -1,48 +1,59 @@
 ---
 name: router
-description: L0 技能路由调度。当需要决定"当前阶段该用哪个 skill"、接手项目、切换工作阶段、多 skill 协作编排时使用。触发词：路由/调度/该用什么skill/阶段决策/接手项目/编排。本 skill 是纯决策薄件——读 catalog 后按阶段决策表调用目标 skill。
+description: 派发与路由调度。决定当前阶段该用哪个技能，以及架构师派活时必须把哪几样东西装进派发包——保证角色信息、边界、判据、证据落点不丢。触发词：路由/调度/该用什么skill/派活/派发/分工/接手项目/交接/编排/该谁做。
 ---
 
-# L0 Router · 阶段路由决策表（v0.2）
+# 派发调度器
 
-> 设计：确定性路由（参考 SWEStash skill-router 模式——不依赖 description 概率触发）。catalog.json = 全量技能目录（唯一数据源）；决策表 = 阶段→skill 映射；AI 按名调用目标 skill。
-> 豆包化：无 hooks/skillOverrides——本文件即决策依据，AI 读到后按表路由。
+两件事：**选技能**，**派任务**。数据源是 `catalog.json`（由 `scaffold/skill-lint.py --write` 生成，不手改）；本文件是决策。
 
-## 1. 使用方式（3 步）
+## 1. 阶段 → 技能
 
-1. 读 `catalog.json`（全量技能目录——名称/职责/触发词/依赖）
-2. 判定当前工作阶段（见决策表"判定"列）
-3. 按表调用目标 skill（先读其 SKILL.md 再执行）
+| 判定（用户说了什么） | 技能 |
+|---|---|
+| 项目启动 / 分析需求 / 做架构 / 拆子系统 / 实现 / 集成 / 准备上线 | `iso` |
+| 代码审查、finding、评审收口 | `ai-code-review` |
+| 写用例、评审用例命名与结构 | `test-naming-and-structure` |
+| 注释该留不该留 | `comment-policy` |
+| 返回码 / 错误模型 / 观测面分工 | `error-code-classification` |
+| 画架构图 / 分层图 / 流程图（SVG） | `notion-diagram` |
+| 写报告、方案答辩包 | `report` / `architecture-support-brief` |
+| 故障复盘、postmortem | `review/incident-review` |
+| 缺工具、需要安装权限 | `essential-tool-install` |
+| 写新类前要对样本 | `cpp-exemplars` |
+| 门禁、台账、提交、角色边界、停线 | `scaffold/sop` + `scaffold/policies`（不是技能） |
 
-> **两轴定位**：先判**阶段**（本表）→ 再看**来源**（自研 / `vendor/`）与**领域**（`domains/`）。
-> 三轴交叉处才是一个具体技能入口。
+判据（反写）：**两个技能都能接住同一个请求时，先看谁给的是判据、谁给的是方法**——判据优先。仍分不出来，说明触发词该收窄，改 description，不留双重入口。
 
-## 2. 阶段 → skill 决策表
+## 2. 派发：一包五样，缺项不得开工
 
-| 阶段 | 判定（用户说了什么） | 主 skill | 辅助/记录 |
-|---|---|---|---|
-| **规范对齐** | 对齐标准规范/核义务/查 `shall`/合规点/规范与方案比对 | **sdlc/S**（S1 身份 → S2 架构 → S3 shall 清单 → S4 工作包 → S5 差异矩阵） | pj-core（证据分级） |
-| 启动/需求 | 项目启动/分析需求/想清楚要做什么 | iso（Insight） | pj-core（协作协议） |
-| 架构 | 做架构/设计接口/拆子系统/选型 | iso（Strategy） | — |
-| 计划 | 多步骤任务/拆分计划 | **iso（Insight/Strategy 拆解）** | pj-core（协作协议） |
-| 实现 | 写代码/子系统实现 | iso（operations/cpp）+ **test-naming-and-structure（TDD/GWT 用例规范）** | pj-core（单元记录） |
-| 集成 | 集成测试/E2E/准备上线 | iso（operations/integration） | — |
-| 调试 | 故障/异常/复现/死锁/泄漏 | **pj-core issues（九段式记录 + Oracle）** | — |
-| 审查 | 代码审查/对弈复核/审查收口 | ai-code-review | pj-core（问题台账） |
-| 完成/合并 | 声称完成/提交/合并/发布 | pj-core（行为约束 + 完成验证） | pj-core（提交纪律双通道） |
-| 复盘 | 复盘/问题归档/改进措施 | pj-core issues（九段式） | — |
-| 记录 | 落盘/日报/单元记录 | pj-core（record） | — |
-| 交接 | 接手项目/换环境/换 agent | pj-core + 项目 README + pj-config.md | — |
+架构师派活时**不发实现步骤**，发一张派发包——就是 `scaffold/templates/任务卡.tpl` 的前三节（角色与必装技能 / 目标与边界 / 验收判据与证据），落盘到 `<日期>/计划/<卡号>-派发.md`。派发包与任务卡是同一件东西的两种叫法，不另立模板。
 
-## 3. 依赖钩子
+**为什么落盘**：对话会被压缩、会被新任务挤出，文件不会。角色信息只存在于对话里，等于没派。
 
-- 所有目标 skill 均为按需加载：先读目标 SKILL.md → 缺失时按该 skill 的依赖声明下载
-- 本 router 不 vendor 任何目标 skill 内容（薄件原则）
+| 槽位 | 内容 | 缺了会怎样 |
+|---|---|---|
+| 角色与边界 | 谁做、不许碰什么、谁复核 | 执行者扩大范围，或不敢动该动的 |
+| 目标 | 做完之后调用方 / 用户能观察到什么变化 | 目标被替换成"跑通测试" |
+| 验收判据 | 可判定条件：阈值 + 测量方法 + 失败长什么样 | 交付"看起来完成了"，无人能否证 |
+| 证据落点 | run 目录 / 用例名 / 报告路径 | 结论不可复核，等于口头 |
+| 必装技能 | 按 §3 角色表取，装载后回执写明装了哪几个 | 规范没进执行现场 |
 
-## 4. 路由纪律
+判据（反写）：**收到派发包的人如果还要回头问「我该做什么、做到什么算完、证据放哪」，说明包缺项**——缺项是派发方的缺陷，不是执行方的问题。
 
-- 阶段判定不清 → 一次只问一个问题；没人可问时按现有证据选最保守的阶段，并把判断写进开发状态
-- 多阶段同时出现 → 拆阶段逐个路由（不并行执行不同阶段 skill）
-- 目标 skill 缺失 → 报告缺失，不静默降级
+## 3. 角色 → 必备技能
 
-> **外部方法论参照**：`obra/superpowers` 未 vendor，也不在 catalog 内。自研等价物（iso / pj-core / test-naming-and-structure）已有实证，默认就用自研；只借鉴两条方法论——调试按 4-phase（复现 → 根因 → 假设 → 修复，禁 patch-symptom），测试按 RED → GREEN → REFACTOR 纪律。真要正式引入某个外部 skill，先登记 catalog 再改决策表，不做"半引入"。
+| 角色 | 必装 | 派发时必须交代 |
+|---|---|---|
+| 架构师（常驻） | `router` + `iso` + 全部 policies | 裁决权、唯一写状态文件、自己改代码即失去裁决资格 |
+| Dev | `iso`（`operations/cpp.md`）、`comment-policy`、`test-naming-and-structure`、`error-code-classification` | 文件范围、契约、禁止项、门禁命令、提交格式 |
+| QA | `ai-code-review` | 评审对象的 commit、独立用例、finding schema、不许复用 Dev 的断言当唯一证据 |
+| 复盘 owner | `review/incident-review` | 证据包路径、三层根因要求 |
+
+**并行工作树**：技能装在 `<项目>/.claude/skills` 不会随 worktree 生成。用 `install-skills.sh --worktrees` 或 `--user`，否则执行现场没有规范，派发包里的"必装技能"是空话。
+
+## 4. 规则冲突
+
+同一条规则出现在两处 → 以更具体的为准（项目 > 脚手架，判据 > 方法），并把冲突记一行偏离。
+
+**不允许两处都留着**——留着就是让下一个人靠猜。

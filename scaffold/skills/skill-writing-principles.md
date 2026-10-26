@@ -6,10 +6,10 @@
 
 | 类别 | 内容 | 例 |
 |---|---|---|
-| **流程编排**（组织层） | 阶段/角色/交接契约——规定"什么时候产出什么"，不规定"怎么做" | ai-code-review 7 阶段、sdlc 阶段链 |
-| **验收面纪律** | 防假绿/防漏网/实证定级/证据链/质疑-裁决/≤2 轮 | pj-core Iron Law、V-1 抑制实测 |
+| **流程编排**（组织层） | 阶段/角色/交接契约——规定"什么时候产出什么"，不规定"怎么做" | ai-code-review 7 阶段、iso 的 I/S/O 三阶段 |
+| **验收面纪律** | 防假绿/防漏网/实证定级/证据链/质疑-裁决/≤2 轮 | 门禁口径唯一（commit==HEAD 且 dirty==0）、实证定级 |
 | **产出格式** | finding schema/报告模板/统一字段——可比较、可机器解析 | ai-code-review finding schema |
-| **操作型事务清单** | bootstrap 接入/工具安装（该工具是验证唯一途径时） | pj-core §3 最小动作集、essential-tool-install |
+| **操作型事务清单** | bootstrap 接入/工具安装（该工具是验证唯一途径时） | essential-tool-install 的安装清单、iso operations 的进场清单 |
 
 ## 2. 禁止写的内容（2 类）
 

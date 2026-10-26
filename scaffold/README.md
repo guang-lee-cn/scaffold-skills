@@ -49,12 +49,11 @@ skills/skills.conf               ← 技能清单（唯一权威）
 
 ## 技能装载（统一入口）
 
-三类技能，一个清单，一个装载器：
+两类技能，一个清单，一个装载器：
 
 | 分组 | 源 | 管理方式 |
 |---|---|---|
 | `[common]` | skills 仓库任意一层含 `SKILL.md` 的目录 | 公共迭代，项目只登记 |
-| `[agent]` | `agent-skills/skills/ad-*` | 第三方包，项目只登记 |
 | `[project]` | `<项目>/skills/<name>/SKILL.md` | 项目自己迭代，清单登记后统一装载 |
 
 ```bash

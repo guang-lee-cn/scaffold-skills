@@ -68,6 +68,7 @@ SCAFFOLD_ROOT: $REPO
 文档: docs/开发交付/（开发状态.md 唯一接口，架构师唯一写者）
 项目特有 skills: 项目根 skills/（本项目独有；公共可复用的走 回流候选.md）
 执行形态: <单检出 | git worktree 并行（需 install-skills.sh --worktrees）>
+环境类型: <wsl2 | linux-desktop | ssh-remote>（决定 tool-bridge.md 走哪条分支）
 EOF
 
 # ── 项目技能清单（唯一权威）
@@ -107,14 +108,15 @@ gen "$DEST/docs/开发交付/工程流程.md" <<EOF
 |---|---|
 | 协作流程（执行形态 / 角色 / 门禁 / 复审） | \`$REPO/scaffold/sop/协作流程-通用版.md\` |
 | 方案评审门禁 | \`$REPO/scaffold/policies/方案评审门禁.md\` |
-| Git 规范（粒度 / push 单位 / 编号） | \`$REPO/scaffold/policies/git规范.md\` |
+| Git 规范（粒度 / 放行 / 历史） | \`$REPO/scaffold/policies/git规范.md\` |
 | 门禁口径（防假绿） | \`$REPO/scaffold/policies/门禁口径唯一.md\` |
 | 泄漏归属判定 | \`$REPO/scaffold/policies/泄漏归属判定.md\` |
 | Token 纪律 | \`$REPO/scaffold/policies/token纪律.md\` |
 | 调研先行与外部案例库 | \`$REPO/scaffold/policies/调研先行.md\` |
+| 跨环境文件操作与命令执行（wsl2 / 本地 / 远程） | \`$REPO/scaffold/policies/tool-bridge.md\` |
 | 规范该写什么（约束/判据/手段）与 DoD 四块 | \`$REPO/scaffold/policies/约束与判据.md\` |
 | 角色规范骨架（Dev / QA） | \`$REPO/scaffold/templates/角色规范-Dev.tpl\`、\`角色规范-QA.tpl\` |
-| 提交信息格式 | \`$REPO/skills/pj-core/references/commit.md\` |
+| 提交信息格式 | \`$REPO/scaffold/policies/commit信息.md\` |
 | 技能写作原则 | \`$REPO/scaffold/skills/skill-writing-principles.md\` |
 
 ## 本项目特有

@@ -1,6 +1,6 @@
 # C++ 速查
 
-- **C++17+**，STL 优先——具体替换对照（`string_view`/`optional`/`variant`/`span`/`<algorithm>`/`chrono`）见 [../../references/cpp-idioms.md](../../references/cpp-idioms.md)
+- **C++17+**，STL 优先——具体替换对照（`string_view`/`optional`/`variant`/`span`/`<algorithm>`/`chrono`）见 [cpp-exemplars](../../../cpp-exemplars/SKILL.md)
 - **RAII**：禁止裸 `new/delete`，用 `std::unique_ptr` / `std::shared_ptr`
 - **const 正确**：不修改的参数用 `const T&`，不修改成员的方法加 `const`
 - **类设计**：头文件 <= 150 行，源文件 <= 250 行，公有方法 <= 9 个（纯数据类型不受限）

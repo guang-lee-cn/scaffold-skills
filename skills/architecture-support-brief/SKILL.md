@@ -1,6 +1,6 @@
 ---
 name: architecture-support-brief
-description: 按需生成“支持性说明/评审答辩包”，结论前置，不改主方案、不反向链接。当用户说“展开 / 深挖 / 依据 / support-brief”时使用：把当前上下文中的争议点写成一份可独立阅读的简短支持文档，供评审人追问时解释。
+description: 按需生成“支持性说明/评审答辩包”，结论前置，不改主方案、不反向链接。触发词：展开/深挖/依据/support-brief/支持性说明/评审答辩。当用户说“展开 / 深挖 / 依据 / support-brief”时使用：把当前上下文中的争议点写成一份可独立阅读的简短支持文档，供评审人追问时解释。
 ---
 
 # 架构支持包（Architecture Support Brief）

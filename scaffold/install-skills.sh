@@ -1,5 +1,5 @@
 #!/bin/bash
-# 统一技能装载器：按项目清单把公共 / 第三方 / 项目自有技能链接到 .claude/skills
+# 统一技能装载器：按项目清单把公共 / 项目自有技能链接到 .claude/skills
 # 用法：
 #   bash install-skills.sh --project <项目根> [--user] [--worktrees] [--check] [--dry-run] [--list] [--prune] [--force]
 # 清单：<项目根>/skills/skills.conf（格式见 templates/skills.conf.tpl）
@@ -80,10 +80,6 @@ resolve() {
       d="$PROJECT/skills/$name"
       [ -f "$d/SKILL.md" ] && { printf '%s\n' "$d"; return 0; }
       ;;
-    agent)
-      d="$SKILLS_ROOT/agent-skills/skills/$name"
-      [ -f "$d/SKILL.md" ] && { printf '%s\n' "$d"; return 0; }
-      ;;
     common|*)
       d="$SKILLS_ROOT/$name"
       if [ -f "$d/SKILL.md" ]; then printf '%s\n' "$d"; return 0; fi
@@ -109,7 +105,7 @@ link_all() {
     case "$line" in
       \[*\]*)
         group="${line:1:${#line}-2}"
-        case "$group" in common|agent|project) ;; *)
+        case "$group" in common|project) ;; *)
           echo "[清单] 未知分组: [$group]" >&2; declared=$((declared+1)); continue ;;
         esac
         continue ;;

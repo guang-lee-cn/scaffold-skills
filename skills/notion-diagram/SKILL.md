@@ -1,6 +1,6 @@
 ---
 name: notion-diagram
-description: "绘制 Notion/文档风格的彩色分区架构图（SVG）：低饱和 pastel 语义分区底色 + 同色系描边 + 同色系深色标题，扁平、无阴影、圆角、大留白。用于架构/拓扑/部署/分层/数据流/系统上下文/机制/流程/时序/状态机类 SVG 图，或重绘、统一既有图片视觉风格、固定图风时。流程：先 ASCII 图对齐定稿，再套 assets/template.svg 与 references/style-tokens.md，转 PNG 自检后回填 Markdown。"
+description: "绘制 Notion/文档风格的彩色分区架构图（SVG）：低饱和 pastel 语义分区底色 + 同色系描边 + 同色系深色标题，扁平、无阴影、圆角、大留白。用于架构/拓扑/部署/分层/数据流/系统上下文/机制/流程/时序/状态机类 SVG 图，或重绘、统一既有图片视觉风格、固定图风时。流程：先 ASCII 图对齐定稿，再套 assets/template.svg 与 references/style-tokens.md，转 PNG 自检后回填 Markdown。触发词：架构图/拓扑图/部署图/数据流图/系统上下文图/时序图/状态机图/画图。"
 ---
 
 # Notion Diagram（彩色分区 SVG 图风）
