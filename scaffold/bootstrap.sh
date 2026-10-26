@@ -106,6 +106,7 @@ gen "$DEST/docs/开发交付/工程流程.md" <<EOF
 
 | 内容 | 唯一源 |
 |---|---|
+| 最高准则（四条，约束一切 SOP 与技能） | \`$REPO/scaffold/policies/最高准则.md\` |
 | 协作流程（执行形态 / 角色 / 门禁 / 复审） | \`$REPO/scaffold/sop/协作流程-通用版.md\` |
 | 方案评审门禁 | \`$REPO/scaffold/policies/方案评审门禁.md\` |
 | Git 规范（粒度 / 放行 / 历史） | \`$REPO/scaffold/policies/git规范.md\` |
