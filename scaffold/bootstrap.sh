@@ -87,6 +87,11 @@ SCAFFOLD_ROOT: $REPO
 项目特有 skills: 项目根 skills/（本项目独有；公共可复用的走 回流候选.md）
 执行形态: <单检出 | git worktree 并行（需 install-skills.sh --worktrees）>
 环境类型: <wsl2 | linux-desktop | ssh-remote>（决定 tool-bridge.md 走哪条分支）
+产物落点:
+  设计文档: <路径>          # 没有就写「无」
+  评审记录: docs/开发交付/<日期>/<卡号>/评审.md
+  复盘报告: docs/开发交付/<日期>/复盘报告-<批次>.md
+  门禁产物: quality/runs/<日期>/<run-id>/
 EOF
 
 # pj-config 保留（重跑）时只刷新版本行：这一行是布设快照，不是项目内容。
@@ -190,12 +195,11 @@ HOOKEOF
   fi
 fi
 
-# ── 首批工作目录：计划 / 日志 / 交接 / 评审各就各位，省得每个角色自己发明路径
+# ── 批次日期目录：只建一层。卡目录在发卡时按 SOP §9.1 创建，避免 bootstrap 先长出一套过时布局
 BATCH_DATE="$(date +%F)"
-for sub in 计划 日志 交接 评审; do
-  mkdir -p "$DEST/docs/开发交付/$BATCH_DATE/$sub"
-done
-echo "[写入] docs/开发交付/$BATCH_DATE/{计划,日志,交接,评审}"
+mkdir -p "$DEST/docs/开发交付/$BATCH_DATE"
+echo "[写入] docs/开发交付/$BATCH_DATE/"
+echo "       卡目录 $BATCH_DATE/<卡号>/ 在发卡时创建，布局见 SOP §9.1（卡.md / thread.md / 交接.md / 评审.md）"
 
 echo "=== Scaffold 布设：$DEST（写入 $written / 保留 $kept）==="
 

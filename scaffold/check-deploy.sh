@@ -63,8 +63,25 @@ else
   elif [ "$root" != "$REPO" ]; then
     warn "SCAFFOLD_ROOT=$root，但当前脚手架在 $REPO（两处不一致，择一改）"
   fi
-  n="$(grep -c ': <[^>]*>' "$PJ" || true)"
-  [ "$n" -gt 0 ] && todo "pj-config.md 还有 $n 个占位没填"
+  # 产物落点是 ISO 判「这一阶段有没有产出」的唯一依据：整段缺失 = 没声明 = 下一阶段不许开工。
+  # 占位口径与下面 pj-config 的总计数一致：只把「值以 <...> 开头」算未填；
+  # 路径模板里的 <日期>/<卡号> 是声明本身的一部分，不算占位。
+  if ! grep -q '^产物落点:' "$PJ"; then
+    bad "pj-config.md 缺「产物落点」一节（ISO 按它判产出，未声明 = 没产出）"
+  else
+    sec_pl="$(awk '
+      /^产物落点:/ { f=1; next }
+      /^[^[:space:]]/ { f=0 }
+      f && /: <[^>]*>/ { n++ }
+      END { print n+0 }' "$PJ")"
+    [ "${sec_pl:-0}" -gt 0 ] && todo "pj-config.md 的产物落点还有 $sec_pl 个 <占位> 没填（没有就写「无」）"
+  fi
+  n="$(awk '
+    /^产物落点:/ { f=1; next }
+    /^[^[:space:]]/ { f=0 }
+    !f && /: <[^>]*>/ { n++ }
+    END { print n+0 }' "$PJ")"
+  [ "${n:-0}" -gt 0 ] && todo "pj-config.md 还有 $n 个占位没填"
   # 版本漂移：模板只在 bootstrap 时落盘，脚手架前进后项目里的索引可能已过期
   rec="$(sed -n 's/^脚手架版本:[[:space:]]*//p' "$PJ" | head -1)"
   cur="$(git -C "${root:-$REPO}" rev-parse --short HEAD 2>/dev/null || true)"
@@ -81,9 +98,10 @@ for f in "$PROJECT/CLAUDE.md" "$PROJECT/docs/开发交付/工程流程.md"; do
   done < <(grep -oE '`/[^`]+`' "$f" 2>/dev/null | tr -d '`' | sort -u)
 done
 
-# 4. 装载产物不入库
-if ! grep -qx '/.claude/skills/' "$PROJECT/.gitignore" 2>/dev/null; then
-  bad ".gitignore 缺 /.claude/skills/（软链含绝对路径，会被提交）"
+# 4. 装载产物不入库。问 git 本身，不认字面行：`/.claude/` 这类父目录写法同样有效，
+# 按行匹配会把已经生效的规则报成缺陷，警告就被训练成噪声了。
+if ! git -C "$PROJECT" check-ignore -q .claude/skills 2>/dev/null; then
+  bad ".gitignore 未忽略 .claude/skills（软链含绝对路径，会被提交）"
 fi
 
 # 5. 门禁配置
