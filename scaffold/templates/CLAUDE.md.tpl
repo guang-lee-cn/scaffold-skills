@@ -23,7 +23,7 @@
 
 - 缺陷先入台账拿编号，再修；终止态只有 `closed` / `wontfix`，没有第三种
 - 缺 QA 评审记录的卡不得 push；已误推的，下次 push 前补一次针对**已推 commit** 的评审
-- 门禁结果只认 `quality/gate-*.json`，且 `git.dirty == 0` 才是证据级
+- 门禁结果只认 `quality/runs/<日期>/<run-id>/summary.json`，且 `git.dirty == 0` 才是证据级
 - 与规范不一致的做法记一条偏离（`偏离记录.md`），不口头绕过
 - 结论先写验证方法；只看一段数据不下根因结论
 

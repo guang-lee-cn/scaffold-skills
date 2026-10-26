@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""数据飞轮-分析环（Scaffold 通用版）：聚合 quality/gate-*.json -> trend.md（表格 + Mermaid 折线）
+"""数据飞轮-分析环（Scaffold 通用版）：聚合 quality/runs/*/*/summary.json -> trend.md
+兼容旧格式 quality/gate-*.json，老项目的历史批次不丢。
+新布局每次 run 一个目录：quality/runs/<日期>/<run-id>/{summary.json, <gate>/gate.json, ...}
+输出：明细表 + 逐门状态/耗时表 + Mermaid 耗时趋势，能一眼看出哪门红了、耗时是否退化。
 用法: python3 aggregate_quality.py [--out quality/trend.md] [--charts N]
-通用：门禁列名动态（取所有批次 gate 名并集），数值自动提取（覆盖%/计数/errors 等）。
-读数口径：只把 git.dirty == 0 且 commit 非空的批次当证据；其余批次在表里标「非证据级」。
+读数口径：只把 git.dirty == 0 且 commit 非空的 run 当证据；其余 run 在表里标「非证据级」。
 """
 import argparse, glob, io, json, os, re, sys
 
@@ -33,87 +35,156 @@ def provenance(d):
     return False, "%s 脏%d" % (commit[:8], dirty) if dirty > 0 else "%s 脏?" % commit[:8]
 
 
+def natural(s):
+    return [(1, int(t)) if t.isdigit() else (0, t) for t in re.split(r"(\d+)", s)]
+
+
 def load_all():
-    rows, names = [], []
-    for fp in sorted(glob.glob(os.path.join(QUALITY, "gate-*.json"))):
+    rows = []
+    # 新格式：一次 run 一个 summary.json
+    for fp in glob.glob(os.path.join(QUALITY, "runs", "*", "*", "summary.json")):
         try:
             d = json.load(io.open(fp, encoding="utf-8"))
         except Exception:
             continue
-        gates = {g["name"]: g for g in d.get("gates", [])}
-        for n in gates:
+        run_dir = os.path.dirname(fp)
+        date = os.path.basename(os.path.dirname(run_dir))
+        run_id = str(d.get("run_id") or os.path.basename(run_dir))
+        gates = {}
+        for g in d.get("gates", []):
+            n = g.get("name")
+            if not n:
+                continue
+            gates[n] = {"status": g.get("status", "?"),
+                        "exit_code": g.get("exit_code"),
+                        "duration_ms": g.get("duration_ms")}
+        level, prov = provenance(d)
+        rows.append(dict(run=run_id, batch=str(d.get("batch", run_id)), date=date,
+                         gates=gates, evidence=level, prov=prov, source="run"))
+    # 旧格式：平铺 gate-<batch>.json（只有 value，没有 duration_ms）
+    for fp in glob.glob(os.path.join(QUALITY, "gate-*.json")):
+        try:
+            d = json.load(io.open(fp, encoding="utf-8"))
+        except Exception:
+            continue
+        gates = {}
+        for g in d.get("gates", []):
+            n = g.get("name")
+            if not n:
+                continue
+            item = {"status": g.get("status", "?"), "exit_code": None,
+                    "duration_ms": None}
+            if g.get("value") is not None:
+                item["value"] = g.get("value")
+            gates[n] = item
+        level, prov = provenance(d)
+        batch = str(d.get("batch", os.path.basename(fp)[5:-5]))
+        rows.append(dict(run=batch, batch=batch, date=str(d.get("date", "?")),
+                         gates=gates, evidence=level, prov=prov, source="legacy"))
+    # 按日期，再按 run 名的自然序（数字段当整数比），否则 b10 会排在 b2 前面
+    rows.sort(key=lambda r: (r["date"], natural(r["run"])))
+    names = []
+    for r in rows:
+        for n in r["gates"]:
             if n not in names:
                 names.append(n)
-        level, prov = provenance(d)
-        # batch/date 手写或旧工具可能给成数字：一律按字符串比，否则排序时 TypeError 整表不出
-        rows.append(dict(batch=str(d.get("batch", os.path.basename(fp)[5:-5])),
-                         date=str(d.get("date", "?")), gates=gates,
-                         evidence=level, prov=prov))
-    # 按文件名排会让 b10 排在 b2 前面，「最近状态/红转绿」随之错位。
-    # 先按日期，再按批次名的自然序（数字段当整数比）。
-    rows.sort(key=lambda r: (r["date"],
-                             [(1, int(t)) if t.isdigit() else (0, t)
-                              for t in re.split(r"(\d+)", r["batch"])]))
     return rows, names
+
+
+def cell(g):
+    """单门单元格：状态 + 耗时；旧格式有 value 时附上，FAIL 加粗。"""
+    if not g:
+        return "-"
+    st = g.get("status", "?")
+    dur = g.get("duration_ms")
+    if dur is None:
+        val = g.get("value")
+        txt = st if val is None else "%s(%s)" % (st, val)
+    else:
+        txt = "%s/%sms" % (st, dur)
+    return "**%s**" % txt if st == "FAIL" else txt
+
+
+def dur_change(series):
+    """最近一次相对上一次的耗时变化；明显变慢（>20% 且 >50ms）标成退化。"""
+    if len(series) < 2:
+        return "—"
+    latest, prev = series[-1], series[-2]
+    if prev <= 0:
+        return "—"
+    pct = (latest - prev) * 100.0 / prev
+    if pct > 20 and (latest - prev) > 50:
+        return "**↑ %.1f%% 退化**" % pct
+    if pct < -20:
+        return "↓ %.1f%%" % abs(pct)
+    return "%+.1f%%" % pct
 
 
 def render_md(rows, names, max_charts=MAX_CHARTS):
     L = ["# 门禁趋势（数据飞轮-分析环产出）", "",
-         "> 自动生成：`python3 aggregate_quality.py`（输入 quality/gate-*.json）", "",
-         "## 明细", "",
-         "| 批次 | 日期 | 证据级 | " + " | ".join(names) + " | 门禁 |",
-         "|" + "---|" * (len(names) + 4)]
+         "> 自动生成：`python3 aggregate_quality.py`"
+         "（输入 `quality/runs/*/*/summary.json`，兼容旧 `quality/gate-*.json`）", "",
+         "## 明细（每次 run）", "",
+         "| run | 批次 | 日期 | 证据级 | " + " | ".join(names) + " | 红门 |",
+         "|" + "---|" * (len(names) + 5)]
     for r in rows:
-        # value 里可能含 |（正则本身/命令片段），不转义会把表格撑出多余列
-        cells = [str(r["gates"][n].get("value", "-")).replace("|", "\\|")
-                 if n in r["gates"] else "-" for n in names]
-        fail = [n for n in names if r["gates"].get(n, {}).get("status") != "PASS"]
-        L.append("| %s | %s | %s | %s | %s |" % (
-            r["batch"], r["date"], r["prov"], " | ".join(cells),
-            "**FAIL**" if fail else "OK"))
+        # 单元格内容可能含 |（旧格式 value/正则），不转义会把表格撑出多余列
+        cells = [cell(r["gates"].get(n)).replace("|", "\\|") for n in names]
+        fail = [n for n in names if r["gates"].get(n, {}).get("status") == "FAIL"]
+        L.append("| %s | %s | %s | %s | %s | %s |" % (
+            r["run"], r["batch"], r["date"], r["prov"], " | ".join(cells),
+            "**" + ", ".join(fail) + "**" if fail else "OK"))
     L.append("")
 
-    # 逐门汇总：红过几次、当前是否绿——比"看最后一行"可靠
-    L += ["## 逐门汇总", "",
-          "| 门禁 | 跑过 | 红过 | 最近状态 | 红转绿 |", "|---|---|---|---|---|"]
+    # 逐门一行：最近状态 / 最近耗时 / 耗时变化 / 最近 commit——红线与耗时退化都能直接扫到
+    L += ["## 逐门状态与耗时", "",
+          "| 门禁 | 跑过 | 红过 | 最近状态 | 最近 duration_ms | 上次 duration_ms | 耗时变化 | 最近 commit |",
+          "|---|---|---|---|---|---|---|---|"]
     for n in names:
         ran = [r for r in rows if n in r["gates"]]
-        red = [r for r in ran if r["gates"][n].get("status") != "PASS"]
-        seen_red, flipped = False, False
-        for r in ran:
-            st = r["gates"][n].get("status")
-            if st != "PASS":
-                seen_red = True
-            elif seen_red:
-                flipped = True
-        last = ran[-1]["gates"][n].get("status", "-") if ran else "-"
-        L.append("| %s | %d | %d | %s | %s |" % (n, len(ran), len(red), last,
-                                                 "是" if flipped else ("—" if not red else "未转绿")))
+        red = [r for r in ran if r["gates"][n].get("status") == "FAIL"]
+        last = ran[-1] if ran else None
+        last_g = last["gates"][n] if last else {}
+        series = [r["gates"][n].get("duration_ms") for r in ran
+                  if r["gates"][n].get("duration_ms") is not None]
+        L.append("| %s | %d | %d | %s | %s | %s | %s | %s |" % (
+            n, len(ran), len(red), last_g.get("status", "-"),
+            series[-1] if series else "-",
+            series[-2] if len(series) >= 2 else "-",
+            dur_change(series),
+            last["prov"] if last else "-"))
     missing = [n for n in names if any(n not in r["gates"] for r in rows)]
     if missing:
-        L += ["", "> 有批次缺门禁（列里显示 `-`）：" + "、".join(missing) + "。缺门禁不等于通过。"]
+        L += ["", "> 有 run 缺门禁（列里显示 `-`）：" + "、".join(missing) + "。缺门禁不等于通过。"]
 
-    plotted = 0
+    # 耗时趋势：只画有 >=2 个耗时的门禁（旧格式没有耗时，自动跳过）
+    plottable = []
     for n in names:
-        series = [(r["batch"], num_of(r["gates"].get(n, {}).get("value", ""))) for r in rows]
-        series = [(b, v) for b, v in series if v is not None]
-        if len(series) < 2:
-            continue
-        if plotted >= max_charts:
-            L += ["", "> 只画前 %d 条数值趋势，其余见明细表。" % max_charts]
-            break
-        vals = [v for _, v in series]
-        lo, hi = min(vals), max(vals)
-        pad = max((hi - lo) * 0.2, 1)
-        L += ["", "## " + n + " 趋势", "", "```mermaid", "xychart-beta",
-              '    title "' + n + ' 趋势"',
-              "    x-axis [" + ", ".join('"%s"' % b[:14] for b, _ in series) + "]",
-              '    y-axis "%s" %.1f --> %.1f' % (n, lo - pad, hi + pad),
-              "    line [" + ", ".join(str(v) for _, v in series) + "]", "```"]
-        plotted += 1
-    L += ["", "## 读数要点", "",
-          "- **证据级**列：`dirty == 0` 且 commit 非空才算；标「脏」的那一批只能当调试记录，不能拿来证明回归",
-          "- 数值列下滑/波动 = 门禁回归信号；门禁 FAIL = 当日批次需复盘",
+        series = [(r["run"], r["gates"][n].get("duration_ms")) for r in rows
+                  if n in r["gates"] and r["gates"][n].get("duration_ms") is not None]
+        if len(series) >= 2:
+            plottable.append((n, series))
+    if plottable:
+        L += ["", "## 门禁耗时趋势", ""]
+        for i, (n, series) in enumerate(plottable):
+            if i >= max_charts:
+                L += ["> 只画前 %d 条耗时趋势，其余见逐门表。" % max_charts]
+                break
+            vals = [v for _, v in series]
+            lo, hi = min(vals), max(vals)
+            pad = max((hi - lo) * 0.2, 1)
+            L += ["### " + n + " 耗时", "", "```mermaid", "xychart-beta",
+                  '    title "%s 耗时(ms)"' % n,
+                  "    x-axis [" + ", ".join('"%s"' % b[:20] for b, _ in series) + "]",
+                  '    y-axis "duration_ms" %.1f --> %.1f' % (lo - pad, hi + pad),
+                  "    line [" + ", ".join(str(v) for v in vals) + "]", "```", ""]
+
+    if L and L[-1] != "":
+        L.append("")
+    L += ["## 读数要点", "",
+          "- **证据级**列：`summary.json.git.dirty == 0` 且 commit 非空才算；标「脏」的 run 只能当调试记录",
+          "- **红门**：任一 `status == FAIL`；`SKIP`（exit 77）不算红，但要在复盘里写明为什么跳过",
+          "- **耗时变化**：最近一次相对上一次；↑ 超 20% 且多 50ms 标「退化」，看趋势图确认是否持续",
           "- 防假绿：命令缺失/正则未命中会记 FAIL 而非空跑（见 policies/门禁口径唯一.md）"]
     return "\n".join(L) + "\n"
 
@@ -125,18 +196,16 @@ def main():
     args = ap.parse_args()
     rows, names = load_all()
     if not rows:
-        print("no gate-*.json under", QUALITY)
+        print("no quality/runs/*/*/summary.json or quality/gate-*.json under", QUALITY)
         sys.exit(1)
     with io.open(args.out, "w", encoding="utf-8") as fh:
         fh.write(render_md(rows, names, args.charts))
-    print("批次 | 日期 | 证据级 | " + " | ".join(names) + " | 门禁")
+    print("run | 日期 | 证据级 | " + " | ".join(names) + " | 红门")
     for r in rows:
-        # value 里可能含 |（正则本身/命令片段），不转义会把表格撑出多余列
-        cells = [str(r["gates"][n].get("value", "-")).replace("|", "\\|")
-                 if n in r["gates"] else "-" for n in names]
-        fail = [n for n in names if r["gates"].get(n, {}).get("status") != "PASS"]
-        print("%s | %s | %s | %s | %s" % (r["batch"][:24], r["date"], r["prov"],
-                                          " | ".join(c[:14] for c in cells),
+        cells = [cell(r["gates"].get(n)).replace("|", "\\|") for n in names]
+        fail = [n for n in names if r["gates"].get(n, {}).get("status") == "FAIL"]
+        print("%s | %s | %s | %s | %s" % (r["run"][:24], r["date"], r["prov"],
+                                          " | ".join(c[:20] for c in cells),
                                           ",".join(fail) if fail else "OK"))
     print("trend.md ->", args.out)
 

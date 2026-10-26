@@ -1,17 +1,36 @@
 #!/bin/bash
-# 数据飞轮-采集环（Scaffold 通用门禁）：逐门禁执行 gates.conf → quality/gate-<batch>.json
-# 用法：bash quality/run_gate.sh [batch标记] [--allow-dirty] [--allow-open-batches]   # 批标记默认 日期-commit
+# 数据飞轮-采集环（Scaffold 通用门禁）：逐门禁执行 gates.conf → quality/runs/<日期>/<run-id>/
+#   每次 run 一个目录：<run-id>/summary.json 汇总；<gate>/gate.json + stdout.log + stderr.log 留单门明细
+# 用法：bash quality/run_gate.sh [batch标记] [--allow-dirty] [--allow-open-batches]
+#   batch 缺省为 UTC 日期；run-id = <batch>-<UTC 时间戳>Z（例 EP-01-20261027T061500Z）
 # 依赖：bash + git(可选) + python3 + grep（零外部工具）
 # 正则口径：POSIX ERE，数字写 [0-9]（\d 在 GNU grep 下未定义，会静默取不到值）
 # 格式：name|命令|取数正则(可选)；命令自身含 | 会被当成第三列（需要管道就包一层脚本）
 # 证据级：git.dirty == 0 且 commit 非空，本次 run 才算证据；否则只能当调试记录
 # 脏树在开跑前直接拒绝（exit 2）：跑完再警告等于白跑一趟，而门禁要的是证据不是全绿
+# 门禁 exit 77 = 主动跳过（记 SKIP，不算失败）
 set -u
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"   # <项目根>/quality
 ROOT="$(cd "$DIR/.." && pwd)"                          # <项目根>
 CFG="$DIR/gates.conf"
 QUALITY="$DIR"
 TMP="$DIR/.gates.tmp"
+
+usage() {
+  cat <<'EOF'
+用法：bash quality/run_gate.sh [batch标记] [--allow-dirty] [--allow-open-batches]
+  batch 缺省为 UTC 日期；run-id = <batch>-<UTC时间戳>Z
+  产物：quality/runs/<日期>/<run-id>/{summary.json, <gate>/{gate.json,stdout.log,stderr.log}}
+  --allow-dirty          脏树也开跑（该 run 记 dirty>0，不是证据级）
+  --allow-open-batches   上一批未关闭也开跑（新项目接手旧进度表时用）
+EOF
+}
+
+for arg in "$@"; do
+  case "$arg" in
+    -h|--help) usage; exit 0 ;;
+  esac
+done
 [ -f "$CFG" ] || { echo "缺 gates.conf（参考 gates.conf.example 生成）"; exit 1; }
 
 # 参数：唯一位置参数是批标记。--allow-dirty 只影响开跑前这一道判树；
@@ -26,16 +45,16 @@ for arg in "$@"; do
     *) [ -z "$BATCH" ] && BATCH="$arg" ;;
   esac
 done
-[ -n "$BATCH" ] || BATCH="$(date +%F)-$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+[ -n "$BATCH" ] || BATCH="$(date -u +%F)"
 
-# 开跑前判树。例外只放采集环自己的产物（与末尾 python 的 own() 同一份清单）；
+# 开跑前判树。例外放采集环自己的产物（runs/ 整个子树、trend.md、.gates.tmp、旧格式 gate-*.json）；
 # 取不到 git 状态时（非 git 项目）不拦，由末尾按 commit 空 / dirty=-1 记非证据级。
 RELQ="${QUALITY#"$ROOT"/}"
 if [ "$ALLOW_DIRTY" -eq 0 ] && git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1; then
   relq_re="$(printf '%s' "$RELQ" | sed 's/[][\\.^$*+?(){}|]/\\&/g')"
   dirty_list="$(git -C "$ROOT" status --porcelain --untracked-files=normal 2>/dev/null \
     | sed -e 's/^...//' \
-    | grep -v -E "^\"?${relq_re}/(\.gates\.tmp|trend\.md|gate-[^\"]*\.json)\"?$" || true)"
+    | grep -v -E "^\"?${relq_re}/(\.gates\.tmp|trend\.md|runs(/.*)?|gate-[^\"]*\.json)\"?$" || true)"
   if [ -n "$dirty_list" ]; then
     echo "[STOP] 工作树不干净，拒绝开跑：脏树上的 run 只能当调试记录，而门禁要的是证据"
     printf '%s\n' "$dirty_list" | head -10 | sed 's/^/  /'
@@ -56,12 +75,70 @@ if [ "$ALLOW_OPEN_BATCHES" -eq 0 ] && [ -f "$DIR/check-flywheel.sh" ]; then
   fi
 fi
 
-mkdir -p "$QUALITY"
+trim() { local s="$1"; s="${s#"${s%%[![:space:]]*}"}"; s="${s%"${s##*[![:space:]]}"}"; printf '%s' "$s"; }
+
+# 零门禁 ≠ 全绿：配了注释/空文件也 exit 0 的话，聚合环会把它当证据级批次。
+# 先数一遍再建 run 目录，避免留下空 run。
+cfg_gates=0
+while IFS='|' read -r name _ _ || [ -n "$name" ]; do
+  name="$(trim "${name%$'\r'}")"
+  name="${name#$'\xef\xbb\xbf'}"
+  [ -z "$name" ] && continue
+  case "$name" in \#*) continue;; esac
+  cfg_gates=$((cfg_gates+1))
+done < "$CFG"
+if [ "$cfg_gates" -eq 0 ]; then
+  echo "[FAIL] $CFG 里没有任何门禁（空行与 # 注释不算）：零门禁不等于通过"
+  exit 1
+fi
+
+# 每次 run 一个目录：quality/runs/<UTC 日期>/<batch>-<UTC 时间戳>Z/
+# 同一秒重跑（脚本连续跑、CI 重试）时等到下一秒，保持 run-id 格式不变。
+safe_batch="${BATCH//\//_}"
+safe_batch="${safe_batch//|/_}"
+safe_batch="${safe_batch//[[:space:]]/_}"
+[ -n "$safe_batch" ] || safe_batch="$(date -u +%F)"
+while :; do
+  run_date="$(date -u +%F)"
+  run_ts="$(date -u +%Y%m%dT%H%M%SZ)"
+  run_id="${safe_batch}-${run_ts}"
+  run_dir="$QUALITY/runs/$run_date/$run_id"
+  mkdir -p "$QUALITY/runs/$run_date"
+  mkdir "$run_dir" 2>/dev/null && break
+  sleep 1
+done
+echo "[RUN] $run_id -> $run_dir"
+
 : > "$TMP"
 count=0
 fails=0
 
-trim() { local s="$1"; s="${s#"${s%%[![:space:]]*}"}"; s="${s%"${s##*[![:space:]]}"}"; printf '%s' "$s"; }
+now_ms() {
+  local n
+  n="$(date +%s%N 2>/dev/null)"
+  case "$n" in ''|*[!0-9]*) echo 0 ;; *) echo $((n / 1000000)) ;; esac
+}
+
+# 用 python 写 JSON：命令/原因里可能有引号、反斜杠、中文，printf 拼 JSON 会坏
+write_gate_json() {
+  python3 - "$@" <<'PYEOF'
+import json, sys
+
+path, name, cmd, status, rc, started, dur, reason, val = sys.argv[1:10]
+doc = {
+    "gate": name,
+    "command": cmd,
+    "status": status,
+    "exit_code": int(rc),
+    "started_at": started,
+    "duration_ms": int(dur),
+    "reason": reason,
+    "metrics": {"value": val} if val != "" else {},
+}
+with open(path, "w", encoding="utf-8") as f:
+    json.dump(doc, f, ensure_ascii=False, indent=1)
+PYEOF
+}
 
 # 末行无换行也要跑（read 在 EOF 处返回非零但变量已填）：否则最后一门禁静默消失
 while IFS='|' read -r name cmd re || [ -n "$name" ]; do
@@ -74,13 +151,27 @@ while IFS='|' read -r name cmd re || [ -n "$name" ]; do
   [ -z "$name" ] && continue
   case "$name" in \#*) continue;; esac
   count=$((count+1))
-  # 门禁名不改写：静默把 "my gate" 变成 "mygate" 会让跨批次的列名对不上
-  if printf '%s' "$name" | grep -q '[[:space:]]'; then
-    echo "$name|FAIL|门禁名含空白" >> "$TMP"
-    echo "[FAIL] $name: 门禁名含空白（列名会与历史批次对不上）"
+
+  # 门禁名不改写：静默把 "my gate" 变成 "mygate" 会让跨批次的列名对不上。
+  # 含空白 / 斜杠 / 是 . 或 .. 的名字无法安全当目录，仍记 FAIL，但落在 _gateN/ 下。
+  case "$name" in
+    *[[:space:]]*|*/*|.|..) gdir="$run_dir/_gate$count"; bad_name=1 ;;
+    *) gdir="$run_dir/$name"; bad_name=0 ;;
+  esac
+  mkdir -p "$gdir"
+  : > "$gdir/stdout.log"
+  : > "$gdir/stderr.log"
+  printf '%s\n' "${gdir#"$run_dir"/}" >> "$TMP"
+  started="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+  if [ "$bad_name" -eq 1 ]; then
+    reason="门禁名含空白、斜杠或为 . / ..，不能当证据目录"
+    write_gate_json "$gdir/gate.json" "$name" "$cmd" FAIL 2 "$started" 0 "$reason" ""
+    echo "[FAIL] $name: 门禁名含空白、斜杠或为 . / ..（列名会与历史批次对不上）"
     fails=$((fails+1))
     continue
   fi
+
   # 防假绿：命令存在性检查（缺失 = FAIL，不空跑）；先跳过前置的 VAR=val
   # 值可能带引号且引号内有空格（FOO="a b" cmd），所以按整段赋值剥，不能按第一个空格切
   probe="$cmd"
@@ -91,46 +182,54 @@ while IFS='|' read -r name cmd re || [ -n "$name" ]; do
   done
   tool="${probe%% *}"
   if ! command -v "$tool" >/dev/null 2>&1 && ! [ -x "$tool" ]; then
-    echo "$name|FAIL|命令缺失: $tool" >> "$TMP"
+    write_gate_json "$gdir/gate.json" "$name" "$cmd" FAIL 127 "$started" 0 "命令缺失: $tool" ""
     echo "[FAIL] $name: 命令缺失 $tool"
     fails=$((fails+1))
     continue
   fi
+
   # </dev/null：不回传循环的 fd 0（配置文件），否则读 stdin 的门禁会吃掉后续配置行
-  out=$(eval "$cmd" </dev/null 2>&1); rc=$?
-  if [ $rc -ne 0 ]; then
-    echo "$name|FAIL|exit $rc" >> "$TMP"
+  start_ms="$(now_ms)"
+  eval "$cmd" </dev/null >"$gdir/stdout.log" 2>"$gdir/stderr.log"; rc=$?
+  end_ms="$(now_ms)"
+  dur=$((end_ms - start_ms))
+  [ "$dur" -lt 0 ] && dur=0
+
+  if [ "$rc" -eq 77 ]; then
+    write_gate_json "$gdir/gate.json" "$name" "$cmd" SKIP "$rc" "$started" "$dur" "exit 77：门禁主动跳过" ""
+    echo "[SKIP] $name: exit 77"
+    continue
+  fi
+  if [ "$rc" -ne 0 ]; then
+    write_gate_json "$gdir/gate.json" "$name" "$cmd" FAIL "$rc" "$started" "$dur" "命令 exit $rc" ""
     echo "[FAIL] $name: exit $rc"
     fails=$((fails+1))
     continue
   fi
-  val="exit 0"
+
+  val=""
   if [ -n "$re" ]; then
     # 防假绿：配了取数正则却匹配不到 = FAIL（指标消失不能当通过）
-    v=$(printf '%s' "$out" | grep -oE "$re" | head -1)
-    if [ -z "$v" ]; then
-      echo "$name|FAIL|正则未命中: $re" >> "$TMP"
+    val="$(cat "$gdir/stdout.log" "$gdir/stderr.log" | grep -oE "$re" | head -1)"
+    if [ -z "$val" ]; then
+      write_gate_json "$gdir/gate.json" "$name" "$cmd" FAIL "$rc" "$started" "$dur" "输出未命中取数正则: $re" ""
       echo "[FAIL] $name: 输出里没有 /$re/"
       fails=$((fails+1))
       continue
     fi
-    val="$v"
   fi
-  echo "$name|PASS|$val" >> "$TMP"
-  echo "[PASS] $name: $val"
+  write_gate_json "$gdir/gate.json" "$name" "$cmd" PASS "$rc" "$started" "$dur" "" "$val"
+  if [ -n "$val" ]; then
+    echo "[PASS] $name: $val"
+  else
+    echo "[PASS] $name: exit 0"
+  fi
 done < "$CFG"
 
-# 零门禁 ≠ 全绿：配了注释/空文件也 exit 0 的话，聚合环会把它当证据级批次
-if [ "$count" -eq 0 ]; then
-  echo "[FAIL] $CFG 里没有任何门禁（空行与 # 注释不算）：零门禁不等于通过"
-  rm -f "$TMP"
-  exit 1
-fi
-
-python3 - "$BATCH" "$QUALITY" "$ROOT" "$TMP" <<'PYEOF'
+python3 - "$BATCH" "$QUALITY" "$ROOT" "$run_dir" "$TMP" "$run_id" <<'PYEOF'
 import json, os, subprocess, sys
 
-batch, quality, root, tmp = sys.argv[1:5]
+batch, quality, root, run_dir, manifest, run_id = sys.argv[1:7]
 
 def git(*args):
     try:
@@ -169,14 +268,16 @@ def status_paths():
 
 
 # 未跟踪文件也算脏：commit 里没有的源码被编进来，这次 run 就不是那个 commit 的证据。
-# 例外只有采集环自己的产物（gate-*.json / .gates.tmp），否则跑一次就把下一次判脏。
+# 例外只有采集环自己的产物：runs/ 整个子树（每次 run 一个目录）、trend.md、.gates.tmp、
+# 旧格式 gate-*.json；否则跑一次就把下一次判脏。
 qrel = os.path.relpath(quality, root).replace(os.sep, "/")
 
 
 def own(path):
-    # trend.md 是分析环的产物：不排除的话「先聚合再跑门禁」会把下一批判脏
-    return (path in (qrel + "/.gates.tmp", qrel + "/trend.md")
-            or (path.startswith(qrel + "/gate-") and path.endswith(".json")))
+    p = path.rstrip("/")
+    return (p in (qrel + "/.gates.tmp", qrel + "/trend.md", qrel + "/runs")
+            or p.startswith(qrel + "/runs/")
+            or (p.startswith(qrel + "/gate-") and p.endswith(".json")))
 
 
 paths = status_paths()
@@ -187,22 +288,35 @@ else:
     dirty = -1 if not commit else len(dirty_paths)
 
 gates = []
-with open(tmp, encoding="utf-8") as f:
+with open(manifest, encoding="utf-8") as f:
     for line in f:
-        line = line.rstrip("\n")
-        if not line:
+        rel = line.strip()
+        if not rel:
             continue
-        gname, gstat, gval = line.split("|", 2)
-        gates.append({"name": gname, "status": gstat, "value": gval})
+        with open(os.path.join(run_dir, rel, "gate.json"), encoding="utf-8") as gf:
+            g = json.load(gf)
+        gates.append({"name": g["gate"], "status": g["status"],
+                      "exit_code": g["exit_code"], "duration_ms": g["duration_ms"]})
 
-date = subprocess.run(["date", "+%F"], capture_output=True, text=True).stdout.strip()
-doc = {"batch": batch, "date": date,
+n_pass = sum(1 for g in gates if g["status"] == "PASS")
+n_fail = sum(1 for g in gates if g["status"] == "FAIL")
+n_skip = sum(1 for g in gates if g["status"] == "SKIP")
+overall = "FAIL" if n_fail else "PASS"
+
+doc = {"run_id": run_id, "batch": batch,
        "git": {"commit": commit, "branch": branch, "dirty": dirty},
+       "overall": {"status": overall, "total": len(gates),
+                   "pass": n_pass, "fail": n_fail, "skip": n_skip},
        "gates": gates}
-path = os.path.join(quality, "gate-%s.json" % batch)
+path = os.path.join(run_dir, "summary.json")
 with open(path, "w", encoding="utf-8") as f:
     json.dump(doc, f, ensure_ascii=False, indent=1)
-print("gate json ->", path, len(gates), "gates")
+print("summary json ->", path)
+print("overall:", overall, "total=%d pass=%d fail=%d skip=%d" % (len(gates), n_pass, n_fail, n_skip))
+
+# 全 SKIP 与全 PASS 是同一行 overall=PASS：stage 未启用时最容易被当成已验收的证据
+if n_pass == 0:
+    print("[警告] 本次 run 没有一个门禁真正跑过（全部 SKIP）：不能当作通过证据")
 
 if not commit:
     print("[警告] 取不到 commit：本次 run 不是证据级")

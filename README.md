@@ -43,7 +43,7 @@ scaffold-skills/
 bash scaffold/bootstrap.sh <项目名>
 ```
 
-然后填 `pj-config.md`（仓库/账号/里程碑）和 `quality/gates.conf`（项目自己的门禁命令），跑 `bash quality/run_gate.sh` 落第一个 gate JSON，再用 `python3 quality/aggregate_quality.py` 生成 `trend.md`。完整步骤见 [scaffold/README.md](scaffold/README.md)。
+然后填 `pj-config.md`（仓库/账号/里程碑）和 `quality/gates.conf`（项目自己的门禁命令），跑 `bash quality/run_gate.sh` 落第一个 run 目录（`summary.json`），再用 `python3 quality/aggregate_quality.py` 生成 `trend.md`。完整步骤见 [scaffold/README.md](scaffold/README.md)。
 
 **技能库**：标准 skill 目录 `<组>/<skill-name>/SKILL.md`。装载走清单，不手工 symlink：
 

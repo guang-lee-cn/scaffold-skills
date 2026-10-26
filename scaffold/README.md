@@ -32,7 +32,7 @@ docs/开发交付/
   工程流程.md                   ← 唯一施工口径索引（细则指向 scaffold，不复制）
   开发状态.md / 问题台账.md / 偏离记录.md / 回流候选.md
   角色规范/{Dev,QA}.md  模板/  外部案例库.md
-quality/                         ← run_gate.sh + gates.conf + gate-*.json + trend.md
+quality/                         ← run_gate.sh + gates.conf + runs/<日期>/<run-id>/ + trend.md
 skills/skills.conf               ← 技能清单（唯一权威）
 ```
 
@@ -40,12 +40,12 @@ skills/skills.conf               ← 技能清单（唯一权威）
 
 ## 数据飞轮（三环）
 ```
-采集  quality/run_gate.sh → gate-<batch>.json（含 git.commit / branch / dirty）
+采集  quality/run_gate.sh → runs/<日期>/<run-id>/summary.json（含 git.commit / branch / dirty）
 分析  python3 quality/aggregate_quality.py → trend.md（明细 + 逐门汇总 + 折线）
 回流  docs/开发交付/回流候选.md →（项目结束）→ scaffold/review/<日期>-…md → 改 scaffold
 ```
 
-**证据级只有一个口径**：`git.dirty == 0` 且 commit 非空。脏树上的 run 只能当调试记录。配了取数正则却匹配不到输出 = FAIL（指标消失不等于通过）。
+**证据级只有一个口径**：`summary.json.git.dirty == 0` 且 commit 非空。脏树上的 run 只能当调试记录。配了取数正则却匹配不到输出 = FAIL（指标消失不等于通过）。
 
 ## 技能装载（统一入口）
 
