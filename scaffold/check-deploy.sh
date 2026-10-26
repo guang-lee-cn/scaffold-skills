@@ -75,6 +75,13 @@ else
       f && /: <[^>]*>/ { n++ }
       END { print n+0 }' "$PJ")"
     [ "${sec_pl:-0}" -gt 0 ] && todo "pj-config.md 的产物落点还有 $sec_pl 个 <占位> 没填（没有就写「无」）"
+    # 键在、值为空：既不是声明也不是占位，ISO 按「声明了但空着 = 断链」处理，这里先报出来
+    sec_empty="$(awk '
+      /^产物落点:/ { f=1; next }
+      /^[^[:space:]]/ { f=0 }
+      f && /^[[:space:]]+[^:#]+:[[:space:]]*$/ { n++ }
+      END { print n+0 }' "$PJ")"
+    [ "${sec_empty:-0}" -gt 0 ] && todo "pj-config.md 的产物落点有 $sec_empty 个键是空的（写路径，或写「无」）"
   fi
   n="$(awk '
     /^产物落点:/ { f=1; next }
