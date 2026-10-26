@@ -97,7 +97,10 @@ fi
 # ── 项目技能清单（唯一权威）
 put "$SCAFFOLD/templates/skills.conf.tpl" "$DEST/skills/skills.conf"
 
-# ── 台账 / 状态 / 偏离 / 回流候选
+# ── 进度 / 台账 / 状态 / 偏离 / 回流候选
+# 进度.md 是「卡片做到哪了」的唯一落点：一屏读完，省掉「现在做到哪」这类提问
+sed -e "s#__PROJECT__#$NAME#g" "$SCAFFOLD/templates/进度.md.tpl" \
+  | gen "$DEST/docs/开发交付/进度.md"
 put "$SCAFFOLD/templates/问题台账.md.tpl"   "$DEST/docs/开发交付/问题台账.md"
 put "$SCAFFOLD/templates/偏离记录.md.tpl"   "$DEST/docs/开发交付/偏离记录.md"
 put "$SCAFFOLD/templates/开发状态.md.tpl"   "$DEST/docs/开发交付/开发状态.md"
@@ -149,6 +152,8 @@ gen "$DEST/docs/开发交付/工程流程.md" <<EOF
 - 里程碑与仓库：\`pj-config.md\`
 - 项目自有技能：\`skills/skills.conf\` 的 \`[project]\` 段
 - 回流候选：\`回流候选.md\`（项目 → 脚手架的唯一入口）
+- 进度：\`进度.md\`（卡片状态唯一落点；发卡加行、关卡拉证据）
+- 批末飞轮自检：\`bash $REPO/scaffold/check-flywheel.sh --project .\`（复盘 + 规则命中表 + 批次指标 + 回流裁决，非 0 不得关批）
 EOF
 
 # ── 装载产物不入库

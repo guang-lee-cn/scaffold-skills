@@ -156,6 +156,29 @@ fi
 [ -f "$PROJECT/docs/开发交付/回流候选.md" ] || warn "缺 docs/开发交付/回流候选.md（项目 → 脚手架无回路）"
 [ -f "$PROJECT/docs/开发交付/偏离记录.md" ] || warn "缺 docs/开发交付/偏离记录.md（偏离无台账，收尾无从回灌）"
 
+# 8b. 进度：卡片状态的唯一落点。只查「卡片」表：「closed 必须有证据」「状态在枚举内」。
+# 不查里程碑表——它的列不同，状态又是枚举子集，混查会造出假阳性。
+PROG="$PROJECT/docs/开发交付/进度.md"
+if [ ! -f "$PROG" ]; then
+  bad "缺 docs/开发交付/进度.md（卡片做到哪没有落点，只能靠问人）"
+else
+  prog_bad="$(awk -F'|' '
+    /^## / { in_cards = ($0 ~ /^## 卡片/) ? 1 : 0; next }
+    !in_cards || $0 !~ /^\|/ || NF < 7 { next }
+    {
+      id=$2; st=$5; ev=$6
+      gsub(/^[ \t]+|[ \t]+$/, "", id); gsub(/^[ \t]+|[ \t]+$/, "", st); gsub(/^[ \t]+|[ \t]+$/, "", ev)
+      if (id == "卡号" || id ~ /^-+$/) next
+      if (st != "planned" && st != "open" && st != "fixing" && st != "verifying" && st != "closed" && st != "wontfix")
+        { print id " 的状态不在枚举内: [" st "]"; next }
+      if (st == "closed" && (ev == "" || ev == "—" || ev == "-"))
+        print id " 已 closed 但没有证据（commit / run / 报告路径都算）"
+    }' "$PROG")"
+  if [ -n "$prog_bad" ]; then
+    while IFS= read -r line; do bad "进度.md: $line"; done <<< "$prog_bad"
+  fi
+fi
+
 # 9. 证据链前置：没有仓库 / 没有 commit，run_gate 的 commit 永远为空，一条证据也攒不下
 if ! git -C "$PROJECT" rev-parse --git-dir >/dev/null 2>&1; then
   warn "不是 git 仓库：门禁 run 拿不到 commit，只能当调试记录（git init -b main 后做首次提交）"
