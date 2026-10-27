@@ -8,20 +8,22 @@ SCAFFOLD="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$SCAFFOLD/.." && pwd)"
 usage() {
   cat >&2 <<'EOF'
-用法：bash check-deploy.sh --project <项目根>
+用法：bash check-deploy.sh --project <项目根> [--deps]
   -p, --project <项目根>   必填
+  --deps                   只查 quality/deps.conf（工具依赖），跳过其余检查
 退出码：0 无错误；2 有错误；1 参数错误
 EOF
   exit "${1:-0}"
 }
 
-PROJECT=""
+PROJECT=""; DEPS_ONLY=0
 while [ $# -gt 0 ]; do
   case "$1" in
     -p|--project)
       # 缺值必须显式报错：`shift 2` 在 $#=1 时失败但不移位，会 100% CPU 死循环
       [ $# -ge 2 ] || usage 1
       PROJECT="$2"; shift 2 ;;
+    --deps) DEPS_ONLY=1; shift ;;
     -h|--help) usage 0 ;;
     *) echo "未知参数: $1" >&2; usage 1 ;;
   esac
@@ -33,6 +35,123 @@ errs=0; todos=0; warns=0
 bad()  { echo "[错误] $*"; errs=$((errs+1)); }
 todo() { echo "[待办] $*"; todos=$((todos+1)); }
 warn() { echo "[警告] $*"; warns=$((warns+1)); }
+
+# 5b. 工具依赖：声明 / 解析 / 上报，不安装。
+# 工具缺失此前只在「跑到那道门」才 FAIL（每个 gate 脚本各有一份 need()），
+# 这里把它提前到布设自检：缺什么、从哪来、怎么补，一次说清。
+# gate 里的 need() 不删——清单会漂移，闸门不能指望清单，两层不是替换。
+trim() { printf '%s' "$1" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'; }
+_dep_ok() {  # $1=PATH 前缀（空=不加） $2=验证命令
+  if [ -n "$1" ]; then
+    PATH="$1:${PATH:-/usr/local/bin:/usr/bin:/bin}" bash -c "$2" >/dev/null 2>&1
+  else
+    bash -c "$2" >/dev/null 2>&1
+  fi
+}
+_dep_resolve() {  # $1=PATH 前缀（空=不加） $2=可执行名 -> 打印 command -v 的结果
+  if [ -n "$1" ]; then
+    PATH="$1:${PATH:-/usr/local/bin:/usr/bin:/bin}" command -v "$2" 2>/dev/null
+  else
+    command -v "$2" 2>/dev/null
+  fi
+}
+_dep_fix() {  # $1=来源 $2=定位提示 $3=自带路径
+  if [ "$1" = "project" ]; then
+    printf '按项目文档重布设自带工具到 %s' "$3"
+    return
+  fi
+  case "$2" in
+    apt:*|apt-get:*) printf 'sudo apt-get install -y %s' "${2#*:}" ;;
+    dnf:*|yum:*)     printf 'sudo dnf install -y %s'     "${2#*:}" ;;
+    brew:*)          printf 'brew install %s'            "${2#*:}" ;;
+    '')              printf '按项目文档安装' ;;
+    *)               printf '手工安装：%s' "$2" ;;
+  esac
+}
+check_deps() {
+  local DC="$PROJECT/quality/deps.conf"
+  if [ ! -f "$DC" ]; then
+    [ "$DEPS_ONLY" -eq 1 ] && echo "未声明 quality/deps.conf（可选：不声明就跳过工具依赖检查）"
+    return 0
+  fi
+  local n=0 ready=0 missing=0 mismatch=0
+  local line name cmd src hint req ppath where msg r probe
+  while IFS= read -r line || [ -n "$line" ]; do
+    line="$(trim "${line%%#*}")"
+    [ -n "$line" ] || continue
+    IFS='|' read -r name cmd src hint req <<< "$line"
+    name="$(trim "$name")"; cmd="$(trim "$cmd")"; src="$(trim "$src")"
+    hint="$(trim "$hint")"; req="$(trim "$req")"
+    if [ -z "$name" ] || [ -z "$cmd" ] || [ -z "$src" ]; then
+      bad "quality/deps.conf 字段不全：$line（至少要 名字|验证命令|来源）"; continue
+    fi
+    case "$src" in
+      system|project|any) ;;
+      *) bad "quality/deps.conf 的 $name 来源非法：$src（只认 system/project/any）"; continue ;;
+    esac
+    case "$req" in
+      ''|required) req=1 ;;
+      optional) req=0 ;;
+      *) bad "quality/deps.conf 的 $name 必需性非法：$req（只认 required/optional）"; continue ;;
+    esac
+    n=$((n+1))
+    ppath="$PROJECT${hint:+/$hint}"
+    where=""
+    # 自带来源必须证明命中的是自带副本：先解析可执行名落到哪，再看那个副本跑不跑得起来。
+    # 只看「加了前缀 PATH 后命令能以 0 退出」会把系统副本也算成自带——版本错的工具照样 --version 成功。
+    probe=0
+    case "$src" in
+      project) probe=1 ;;
+      any) [ -n "$hint" ] && probe=1 ;;
+    esac
+    if [ "$probe" -eq 1 ]; then
+      r="$(_dep_resolve "$ppath" "${cmd%% *}")"
+      if [ -z "$r" ]; then
+        where=""
+      elif [ "${r#"$ppath"/}" != "$r" ]; then
+        if _dep_ok "$ppath" "$cmd"; then where="项目自带 ${hint:-.}"; else where="__broken__"; fi
+      elif [ "$src" = "project" ]; then
+        where="__mismatch__"
+      else
+        where="系统"
+      fi
+    else
+      _dep_ok "" "$cmd" && where="系统"
+    fi
+    if [ "$where" = "__broken__" ]; then
+      mismatch=$((mismatch+1))
+      msg="$name 项目自带的副本存在但验证命令失败（${ppath}）；按项目文档重布设（验证：$cmd）"
+      if [ "$req" -eq 1 ]; then bad "$msg"; else warn "$msg"; fi
+    elif [ "$where" = "__mismatch__" ]; then
+      mismatch=$((mismatch+1))
+      msg="$name 命中的是 $r，但清单要求项目自带（${ppath}）；$(_dep_fix project "$hint" "$ppath")"
+      if [ "$req" -eq 1 ]; then bad "$msg"; else warn "$msg"; fi
+    elif [ -n "$where" ]; then
+      ready=$((ready+1))
+      # 就绪项只在 --deps 模式下逐条打印；常规自检保持「只报问题」，否则告警被训练成噪声
+      [ "$DEPS_ONLY" -eq 1 ] && echo "[就绪] $name（$where）"
+    else
+      missing=$((missing+1))
+      msg="$name 缺失；补：$(_dep_fix "$src" "$hint" "$ppath")（验证：$cmd）"
+      if [ "$req" -eq 1 ]; then bad "$msg"; else warn "$msg"; fi
+    fi
+  done < "$DC"
+  if [ "$n" -gt 0 ]; then
+    echo "---"
+    echo "依赖: 声明 $n / 就绪 $ready / 缺失 $missing / 来源不符 $mismatch"
+  elif [ "$DEPS_ONLY" -eq 1 ]; then
+    echo "quality/deps.conf 没有有效条目（全是注释或空行）"
+  fi
+}
+
+if [ "$DEPS_ONLY" -eq 1 ]; then
+  check_deps
+  echo "---"
+  echo "项目: $PROJECT"
+  echo "错误 $errs / 待办 $todos / 警告 $warns"
+  [ "$errs" -eq 0 ] || exit 2
+  exit 0
+fi
 
 # 1. AI 入口
 ENTRY="$PROJECT/CLAUDE.md"
@@ -142,6 +261,9 @@ else
 fi
 [ -f "$PROJECT/quality/run_gate.sh" ] || bad "缺 quality/run_gate.sh"
 [ -f "$PROJECT/quality/aggregate_quality.py" ] || bad "缺 quality/aggregate_quality.py（CLAUDE.md 的分析环命令跑不了）"
+
+# 5b. 工具依赖（quality/deps.conf 不存在就整段跳过）
+check_deps
 
 # 6. 技能清单与装载
 CONF="$PROJECT/skills/skills.conf"

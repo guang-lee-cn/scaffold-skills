@@ -63,6 +63,8 @@ gen() {  # gen <目标>  —— 内容从 stdin 读；存在即保留（先吃�
 put "$SCAFFOLD/quality/run_gate.sh.tpl"     "$DEST/quality/run_gate.sh" x
 put "$SCAFFOLD/quality/aggregate_quality.py" "$DEST/quality/aggregate_quality.py" x
 put "$SCAFFOLD/quality/gates.conf.example"  "$DEST/quality/gates.conf"
+# 工具依赖清单：全注释的模板落盘，声明 0 条 = 跳过检查。不声明是合法形态。
+put "$SCAFFOLD/templates/deps.conf.tpl"     "$DEST/quality/deps.conf"
 # 飞轮闸门跟门禁一起落在项目里：run_gate 开跑前要它判批次表，它自己也得能被关批时直接调
 put "$SCAFFOLD/check-flywheel.sh"           "$DEST/quality/check-flywheel.sh" x
 put "$SCAFFOLD/quality/commit-lint.sh"      "$DEST/quality/commit-lint.sh" x
@@ -207,6 +209,10 @@ echo "=== Scaffold 布设：$DEST（写入 $written / 保留 $kept）==="
 if [ "$WITH_SKILLS" -eq 1 ]; then
   echo "--- 装载技能 ---"
   bash "$SCAFFOLD/install-skills.sh" --project "$DEST" || echo "[警告] 技能未全部就绪，按上面提示补清单后重跑 --no-skills 那条命令"
+  # 角色定义是另一支装载器。清单模板里默认声明了 [agents]，不一起装的话
+  # 新项目第一次自检就是红的——那条错误是布设没做完，不是项目缺东西。
+  echo "--- 装载角色定义 ---"
+  bash "$SCAFFOLD/install-agents.sh" --project "$DEST" || echo "[警告] 角色定义未全部就绪，按上面提示补清单后重跑"
 fi
 
 echo "--- 布设自检 ---"
@@ -215,6 +221,7 @@ bash "$SCAFFOLD/check-deploy.sh" --project "$DEST" || true
 echo "下一步:"
 echo "  1) 填 pj-config.md 的 <占位>"
 echo "  2) 填 quality/gates.conf（换成本项目真实命令；示例是 C++ 口径）"
+echo "     可选：填 quality/deps.conf（门禁工具清单，check-deploy --deps 提前报缺失）"
 if [ "$WITH_GIT" -eq 1 ]; then
   echo "  3) git add -A && git commit -m 'chore(scaffold): bootstrap' —— 门禁只认有 commit 的干净树"
   echo "  4) bash quality/run_gate.sh <batch标记> 试跑首个批次"
