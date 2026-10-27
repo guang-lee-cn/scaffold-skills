@@ -11,7 +11,9 @@
 set -uo pipefail
 
 MSG_FILE="${1:-}"
-[ -n "$MSG_FILE" ] && [ -f "$MSG_FILE" ] || { echo "用法: bash quality/commit-lint.sh <msg-file>" >&2; exit 2; }
+if ! { [ -n "$MSG_FILE" ] && [ -f "$MSG_FILE" ]; }; then
+  echo "用法: bash quality/commit-lint.sh <msg-file>" >&2; exit 2
+fi
 CONF="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/commit-lint.conf"
 
 MAX_BULLETS=4

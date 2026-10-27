@@ -100,6 +100,7 @@ fi
 # 3. 索引里的绝对路径（脚手架移动后最先断的就是这些）
 for f in "$PROJECT/CLAUDE.md" "$PROJECT/docs/开发交付/工程流程.md"; do
   [ -f "$f" ] || continue
+  # shellcheck disable=SC2016  # 单引号是刻意的：正则里的反引号要被 grep 原样收到
   while IFS= read -r p; do
     [ -e "$p" ] || bad "$(basename "$f") 索引断链 -> $p"
   done < <(grep -oE '`/[^`]+`' "$f" 2>/dev/null | tr -d '`' | sort -u)

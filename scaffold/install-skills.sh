@@ -203,7 +203,7 @@ link_all() {
   fi
 }
 
-declared=0; linked=0; skipped=0; missing=0; conflict=0; pruned=0
+declared=0; linked=0; missing=0; conflict=0; pruned=0
 link_all
 echo "---"
 echo "目标: $TARGET"
