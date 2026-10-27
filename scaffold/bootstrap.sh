@@ -167,12 +167,13 @@ gen "$DEST/docs/开发交付/工程流程.md" <<EOF
 - 提交信息检查：\`.git/hooks/commit-msg\` → \`quality/commit-lint.sh\`（格式 / 分条上限 / 禁代号与署名）
 EOF
 
-# ── 装载产物不入库
+# ── 装载产物不入库（技能目录 + 角色定义，两者都是含绝对路径的软链）
 GI="$DEST/.gitignore"
 if [ ! -f "$GI" ]; then
-  printf '/.claude/skills/\n' > "$GI"; echo "[写入] .gitignore"; written=$((written+1))
-elif ! grep -qx '/.claude/skills/' "$GI"; then
-  printf '\n/.claude/skills/\n' >> "$GI"; echo "[追加] .gitignore: /.claude/skills/"; written=$((written+1))
+  printf '/.claude/\n' > "$GI"; echo "[写入] .gitignore"; written=$((written+1))
+# 老项目里多半还是 /.claude/skills/（只挡技能，挡不住角色定义），补一条 /.claude/
+elif ! grep -qx '/.claude/' "$GI"; then
+  printf '\n/.claude/\n' >> "$GI"; echo "[追加] .gitignore: /.claude/"; written=$((written+1))
 fi
 
 # ── 提交信息检查装进 git 钩子：规则进不了执行路径，就等于没有规则 ────────────

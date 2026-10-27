@@ -6,7 +6,7 @@
 | 块 | 内容 |
 |---|---|
 | bootstrap.sh | 一键布设（幂等：已存在的项目文件一律保留，`--force` 才覆盖） |
-| check-deploy.sh | 布设自检：入口文件 / 索引断链 / 占位未填 / 门禁未配 / 技能未装 / 工作树无技能 |
+| check-deploy.sh | 布设自检：入口文件 / 索引断链 / 占位未填 / 门禁未配 / 技能未装 / 角色定义未装 / 工作树无技能 |
 | quality/ | run_gate.sh.tpl（采集环，落 git.dirty 判定证据级）+ gates.conf（门禁命令）+ aggregate_quality.py（分析环 → trend.md） |
 | sop/ | 协作流程通用版（执行形态 + 两层门禁 + push 前置条件 + 缺陷/偏离 + 项目结束复审） |
 | templates/ | CLAUDE.md（AI 入口）/ 回流候选 / 开发状态 / 问题台账 / 偏离记录 / 外部案例库 / 周总结 / QA报告 / Dev交接 / 复盘 / 任务卡 / 角色规范 |
@@ -14,6 +14,8 @@
 | review/ | **回流入口**：每个项目结束时一份 `<日期>-<项目>-<主题>.md`，是 scaffold 增删的唯一依据 |
 | skills/ | 技能写作原则；安装由 `install-skills.sh` 统一执行 |
 | install-skills.sh | 统一装载器：按 `<项目>/skills/skills.conf` 链接公共 / 第三方 / 项目自有技能，`--worktrees` 覆盖并行工作树 |
+| agents/ | 角色定义源（`qa.md` / `dev.md`）：身份、红线、工具白名单、开工先读、报告模板；规范正文仍在 `docs/开发交付/角色规范/` |
+| install-agents.sh | 角色定义装载器：按清单 `[agents]` 分组把 `agents/<名>.md` 链进 `<项目>/.claude/agents/` |
 | skill-lint.py | 自检（frontmatter / catalog ↔ 目录 / 断链 / 重复 / 零引用 / 触发词冲突）+ `--write` 生成 catalog |
 
 ## 一条命令布设
@@ -68,7 +70,25 @@ bash scaffold/install-skills.sh --project <项目根> --user       # 装到 ~/.c
 
 **并行执行形态必看**：SOP §1 要求 subagent 在隔离工作树里干活，而 `.claude/` 不会随工作树生成。只在主检出装过 = 执行现场没有技能。用 `--worktrees` 或 `--user`。
 
-入库纪律：`skills/skills.conf` 入库，`.claude/skills/` 不入库（装载产物，含绝对路径）。bootstrap 会自动写 `.gitignore`。
+入库纪律：`skills/skills.conf` 入库，`.claude/skills/` 与 `.claude/agents/` 不入库（装载产物，含绝对路径）。bootstrap 自动写 `/.claude/` 到 `.gitignore`。
+
+## 角色定义装载
+
+角色定义是**派发时的提示词**，不是技能：技能靠触发词按需加载，角色靠 `subagent_type` 在派发那一刻被读入。所以两者源不同、装载目标不同、校验规则也不同（技能链目录、要 `SKILL.md`；角色链单文件、要 frontmatter），装载器分成两支。
+
+```bash
+bash scaffold/install-agents.sh --project <项目根>           # 装载/重链
+bash scaffold/install-agents.sh --project <项目根> --check   # 校验清单与链接
+bash scaffold/install-agents.sh --project <项目根> --list    # 只列声明与源路径
+```
+
+清单仍在 `skills/skills.conf`，分组 `[agents]`，一行一个名字，对应 `scaffold/agents/<名字>.md`。没有这一组是合法形态（不是每个项目都派子角色），`check-deploy.sh` 只在你声明了却装不上时报错。
+
+**写角色定义的三条约束**：
+
+1. 只写身份、红线、工具白名单、开工先读哪几份文件、报告模板；**规范正文不复制**，写指针指向 `docs/开发交付/角色规范/<角色>.md`——双源必分叉。
+2. `tools:` 是结构性约束，不是建议：QA 不给自己写权限，就不存在「顺手改一行」的越界。
+3. 报告模板给行数上限。角色定义的产出是可合并结论，不是过程叙事；没有上限就会把上下文用光在复述上。
 
 ## 演进：谁能进来，谁必须出去
 

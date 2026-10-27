@@ -177,6 +177,18 @@ else
   fi
 fi
 
+# 7b. 角色定义装载（.claude/agents）。清单里没有 [agents] 分组是合法形态：不是每个项目都派子角色，
+# 所以这里只在「声明了却装不上」时报警；声明了就等于承认角色定义影响产出，装不上必须挡住。
+if grep -q '^\[agents\]' "$CONF" 2>/dev/null; then
+  if ! bash "$SCAFFOLD/install-agents.sh" --project "$PROJECT" --check >/dev/null 2>&1; then
+    bad "角色定义未装就绪——跑 bash $SCAFFOLD/install-agents.sh --project $PROJECT 看明细"
+  fi
+  # 与技能同一判据：软链含绝对路径，进了库换台机器就是断链
+  if ! git -C "$PROJECT" check-ignore -q .claude/agents 2>/dev/null; then
+    bad ".gitignore 未忽略 .claude/agents（角色定义软链含绝对路径，会被提交）"
+  fi
+fi
+
 # 8. 回流入口与偏离台账
 [ -f "$PROJECT/docs/开发交付/回流候选.md" ] || warn "缺 docs/开发交付/回流候选.md（项目 → 脚手架无回路）"
 [ -f "$PROJECT/docs/开发交付/偏离记录.md" ] || warn "缺 docs/开发交付/偏离记录.md（偏离无台账，收尾无从回灌）"
