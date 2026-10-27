@@ -14,7 +14,7 @@ open → fixing → verifying → closed
 - `open`：已确认、未动手
 - `fixing`：有人在做
 - `verifying`：改完了，等验证（用例名 / 命令 / 复现步骤）
-- `closed`：验证通过
+- `closed`：验证通过，**且证据指针在目标分支上可达**（提交：`git merge-base --is-ancestor <commit> <目标分支>` 退出 0；分支上的临时 hash 不算——rebase 之后它是孤儿对象，台账照写 `closed` 就是假记录）
 - `wontfix`：决定不修，理由必须写「为什么可以不修」，不写「暂时没空」
 
 ## 记录字段
@@ -27,6 +27,7 @@ open → fixing → verifying → closed
 - **定级**：P0 阻断 / P1 严重 / P2 一般 / P3 轻微
 - **分类**：取值从项目既有集合里取，不自造近义词；新增取值需架构师确认
 - **验证方式**：回退修复后应当变红的那个用例名
+- **证据可达**：关账时核一次。提交看 `merge-base --is-ancestor`，run 目录/报告看 `git ls-files --error-unmatch`；核不过的只能是 `verifying`，不能 `closed`
 
 ## 根因栏（关闭时填）
 
