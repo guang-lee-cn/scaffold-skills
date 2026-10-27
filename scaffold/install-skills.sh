@@ -3,6 +3,7 @@
 # 用法：
 #   bash install-skills.sh --project <项目根> [--user] [--worktrees] [--check] [--dry-run] [--list] [--prune] [--force]
 # 清单：<项目根>/skills/skills.conf（格式见 templates/skills.conf.tpl）
+#       [agents] 分组不属于本脚本，由 install-agents.sh 装载，这里跳过且不计入声明数
 # 源库：$SKILLS_ROOT，默认 ~/code/scaffold-skills/skills
 # 退出码：0 全部就绪；1 参数/清单错误；2 有缺失或冲突（--check 同）
 set -uo pipefail
@@ -101,7 +102,7 @@ link_one() {
 
 # link_all：把清单里的技能链进 $TARGET（$TARGET 由调用方设置）
 link_all() {
-  local group="" raw line src dst cur
+  local group="" raw line src dst cur skip_group=0
   # --check/--list/--dry-run 都是只读的：连目录都不该建，否则「检查」会顺手改变下一轮的判定
   if [ "$CHECK" -eq 0 ] && [ "$LIST" -eq 0 ] && [ "$DRY" -eq 0 ]; then
     mkdir -p "$TARGET"
@@ -113,11 +114,19 @@ link_all() {
     case "$line" in
       \[*\]*)
         group="${line:1:${#line}-2}"
-        case "$group" in common|project) ;; *)
-          echo "[清单] 未知分组: [$group]" >&2; declared=$((declared+1)); continue ;;
+        skip_group=0
+        case "$group" in
+          common|project) ;;
+          # 同一份清单两个装载器：本脚本只管技能，[agents] 归 install-agents.sh。
+          # 认不得这个分组的话，角色名会被当成技能去源库找 SKILL.md，报「缺失」并让布设自检整片变红。
+          agents) skip_group=1 ;;
+          *)
+            echo "[清单] 未知分组: [$group]" >&2; declared=$((declared+1)); continue ;;
         esac
         continue ;;
     esac
+    # 不归本脚本管的分组：既不装也不计数，声明的分母只算技能
+    [ "$skip_group" -eq 1 ] && continue
     [ -n "$group" ] || { echo "[清单] 条目 '$line' 不在任何分组下" >&2; declared=$((declared+1)); continue; }
 
     declared=$((declared+1))
