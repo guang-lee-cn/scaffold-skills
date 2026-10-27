@@ -216,6 +216,36 @@ else
   fi
 fi
 
+# 8c. 常驻链预算：链上文件每轮对话都要读，它们的大小直接决定推理空间。
+# 为什么要有这条：CLAUDE.md 写了「规则类文件各自 ≤200 行」，但没有任何执行路径——
+# 本项目实测两次超限（台账 301 行 / 299 KB、开发状态 448 行 / 206 KB），直到 G 提才被发现。
+# 判据用总字节而不是行数：中文行与英文行差 3 倍，按行数算会被长行逃过去。
+# 超限只 warn 不 bad：新项目还没有归档可拆，把它做成错误会让检查从一开始就红。
+CHAIN_FILES="CLAUDE.md pj-config.md docs/开发交付/工程流程.md docs/开发交付/进度.md docs/开发交付/开发状态.md docs/开发交付/问题台账.md"
+BUDGET_KB="${CHAIN_BUDGET_KB:-150}"
+chain_total=0; chain_detail=""
+for f in $CHAIN_FILES; do
+  [ -f "$PROJECT/$f" ] || continue
+  kb=$(( $(wc -c < "$PROJECT/$f") / 1024 ))
+  chain_total=$((chain_total + kb))
+  # 单文件超过总预算的一半就点名：它一定是主因
+  [ "$kb" -gt $((BUDGET_KB / 2)) ] && chain_detail="$chain_detail $(basename "$f")=${kb}KB"
+done
+if [ "$chain_total" -gt "$BUDGET_KB" ]; then
+  warn "常驻链 ${chain_total}KB > 预算 ${BUDGET_KB}KB（超出的应拆到归档，只留当前批与未决）${chain_detail:+；主因：$chain_detail}"
+fi
+# 拆过却没留索引 = 证据被埋：归档目录里有文件，主文件里就必须能查到往哪找，
+# 否则「台账唯一落点」变成了「有人记得就行」。
+ADIR="$PROJECT/docs/开发交付/归档"
+if [ -d "$ADIR" ] && [ -n "$(ls -A "$ADIR" 2>/dev/null)" ]; then
+  if [ -f "$PROJECT/docs/开发交付/开发状态.md" ] && ! grep -q '归档' "$PROJECT/docs/开发交付/开发状态.md"; then
+    bad "docs/开发交付/归档/ 里已有文件，但 开发状态.md 没有归档索引（拆出去的东西查不回来）"
+  fi
+  if [ -f "$PROJECT/docs/开发交付/问题台账.md" ] && ! grep -q '归档' "$PROJECT/docs/开发交付/问题台账.md"; then
+    bad "docs/开发交付/归档/ 里已有文件，但 问题台账.md 没有归档索引"
+  fi
+fi
+
 # 9. 证据链前置：没有仓库 / 没有 commit，run_gate 的 commit 永远为空，一条证据也攒不下
 if ! git -C "$PROJECT" rev-parse --git-dir >/dev/null 2>&1; then
   warn "不是 git 仓库：门禁 run 拿不到 commit，只能当调试记录（git init -b main 后做首次提交）"
