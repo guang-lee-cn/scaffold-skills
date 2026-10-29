@@ -98,6 +98,8 @@ bash scaffold/install-skills.sh --project <项目根> --user       # 装到 ~/.c
 
 角色定义是**派发时的提示词**，不是技能：技能靠触发词按需加载，角色靠 `subagent_type` 在派发那一刻被读入。所以两者源不同、装载目标不同、校验规则也不同（技能链目录、要 `SKILL.md`；角色链单文件、要 frontmatter），装载器分成两支。
 
+**角色是可选形态，不是默认形态**：只有在需要**独立性**（评审 / 复核 / 裁定）或**并行**（文件范围不相交的大块工作）时才派；其余场合自己执行 + 调技能更省——派一个 agent 要付「重述上下文 + 独立读懂代码 + 回收并复核产出」三笔固定成本。判据在 `sop/协作流程-通用版.md` §1。
+
 ```bash
 bash scaffold/install-agents.sh --project <项目根>           # 装载/重链
 bash scaffold/install-agents.sh --project <项目根> --check   # 校验清单与链接

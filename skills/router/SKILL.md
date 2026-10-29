@@ -38,6 +38,8 @@ description: 派发与路由调度。决定当前阶段该用哪个技能，以�
 
 ## 2. 派发：一包五样，缺项不得开工
 
+**先判该不该派，再判包齐不齐**。只有两种需求买得到角色（判据与成本见 `sop/协作流程-通用版.md` §1）：**独立性**（要它推翻某个结论，同时答得出「推翻什么」）与**并行**（去掉它主线会停）。其余请求自己执行、按 §1 选技能——派出去要重述上下文、回来要复核产出，换不到这两样就是净亏。
+
 架构师派活时**不发实现步骤**，发一张派发包——就是 `scaffold/templates/任务卡.tpl` 的前三节（角色与必装技能 / 目标与边界 / 验收判据与证据），落盘到 `<日期>/<卡号>/卡.md`（卡目录布局见 `sop/协作流程-通用版.md` §9.1）。派发包与任务卡是同一件东西的两种叫法，不另立模板。
 
 **为什么落盘**：对话会被压缩、会被新任务挤出，文件不会。角色信息只存在于对话里，等于没派。
@@ -56,9 +58,9 @@ description: 派发与路由调度。决定当前阶段该用哪个技能，以�
 
 | 角色 | 必装 | 派发时必须交代 |
 |---|---|---|
-| 架构师（常驻） | `router` + `iso` + 全部 policies | 裁决权、唯一写状态文件、自己改代码即失去裁决资格 |
-| Dev | `iso`（`operations/cpp.md`）、`comment-policy`、`test-naming-and-structure`、`error-code-classification` | 文件范围、契约、禁止项、门禁命令、提交格式 |
-| QA | `ai-code-review` | 评审对象的 commit、独立用例、finding schema、不许复用 Dev 的断言当唯一证据 |
+| 架构师（常驻） | `router` + `iso` + 全部 policies | 裁决权、唯一写状态文件、自己实现的卡不得自行充当独立评审 |
+| Dev | `iso`（`operations/cpp.md`）、`comment-policy`、`test-naming-and-structure`、`error-code-classification` | 文件范围、契约、禁止项、门禁命令、提交格式。**上下文已在架构师手里时不派** |
+| QA | `ai-code-review` | 评审对象的 commit、独立用例、finding schema、不许复用 Dev 的断言当唯一证据。这是「独立性」的主承担者，不可省 |
 | 复盘 owner | `review/incident-review` | 证据包路径、三层根因要求 |
 
 **并行工作树**：技能装在 `<项目>/.claude/skills` 不会随 worktree 生成。用 `install-skills.sh --worktrees` 或 `--user`，否则执行现场没有规范，派发包里的"必装技能"是空话。

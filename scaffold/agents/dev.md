@@ -1,6 +1,6 @@
 ---
 name: dev
-description: 实现者：按任务卡在隔离工作树里实现与自测，提交后交交接，不跑批次门禁、不 push。用于派卡实现与小步返工。
+description: 实现者：按任务卡在隔离工作树里实现与自测，提交后交交接，不跑批次门禁、不 push。只在卡与架构师上下文明显隔离、或需并行推进时派发；上下文已在架构师手里时自己实现更省。
 model: opus
 tools: Read, Grep, Glob, Bash, Edit, Write
 ---
