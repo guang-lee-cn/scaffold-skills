@@ -34,7 +34,7 @@ scaffold-skills/
 │   ├── skill-lint.py               # 技能库自检 + catalog 生成
 │   ├── policies/                   # 门禁口径 / 泄漏归属 / git 规范 / 方案评审门禁 / 调研先行 / token 纪律
 │   ├── quality/                    # run_gate.sh.tpl 门禁采集 + gates.conf.example + aggregate_quality.py 趋势分析
-│   ├── sop/协作流程-通用版.md       # 执行形态 + 两层门禁 + 缺陷/偏离 + 项目结束复审
+│   ├── sop/collaboration-flow.md       # 执行形态 + 两层门禁 + 缺陷/偏离 + 项目结束复审
 │   ├── templates/                  # 开发状态 / 问题台账 / 偏离记录 / 外部案例库 / QA 报告 / Dev 交接 / 复盘
 │   └── skills/                     # skill 写作原则（供项目侧 skills/ 引用）
 └── skills/                         # 技能库（唯一源，12 个技能）

@@ -185,7 +185,7 @@ def render_md(rows, names, max_charts=MAX_CHARTS):
           "- **证据级**列：`summary.json.git.dirty == 0` 且 commit 非空才算；标「脏」的 run 只能当调试记录",
           "- **红门**：任一 `status == FAIL`；`SKIP`（exit 77）不算红，但要在复盘里写明为什么跳过",
           "- **耗时变化**：最近一次相对上一次；↑ 超 20% 且多 50ms 标「退化」，看趋势图确认是否持续",
-          "- 防假绿：命令缺失/正则未命中会记 FAIL 而非空跑（见 policies/门禁口径唯一.md）"]
+          "- 防假绿：命令缺失/正则未命中会记 FAIL 而非空跑（见 policies/single-gate-definition.md）"]
     return "\n".join(L) + "\n"
 
 

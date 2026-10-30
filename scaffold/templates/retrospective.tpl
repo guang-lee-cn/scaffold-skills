@@ -28,7 +28,7 @@
 |---|---|---|
 | <如 最高准则 §1 Reuse First> | 是 / 否 | <具体缺陷；命中填位置，未命中填 —> |
 
-零命中退役：连续两批零命中的规则，本批删除或降为样本（`policies/约束与判据.md` §1.1）。删除清单：<无 / 规则名 + 理由>
+零命中退役：连续两批零命中的规则，本批删除或降为样本（`policies/constraints-and-criteria.md` §1.1）。删除清单：<无 / 规则名 + 理由>
 
 ## 沉淀
 - 模式编号 → ai-code-review dimensions / Scaffold policies

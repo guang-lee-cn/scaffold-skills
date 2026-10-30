@@ -11,7 +11,7 @@
 # 门禁 exit 77 = 主动跳过（记 SKIP，不算失败）
 # 门脚本自己也要有已知全绿的回放样本（历史绿 run 的 stdout.log 回放后仍退出 0 且指标数一致）：
 #   它坏了没有别的门能发现；只用坏 run 验证过的解析脚本，会把「脚本静默退出」记成「测试失败」。
-# 解析型门脚本在 `set -euo pipefail` 下取数，零命中属正常的必须 `|| true`（policies/约束与判据.md §2.4）。
+# 解析型门脚本在 `set -euo pipefail` 下取数，零命中属正常的必须 `|| true`（policies/constraints-and-criteria.md §2.4）。
 set -u
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"   # <项目根>/quality
 ROOT="$(cd "$DIR/.." && pwd)"                          # <项目根>

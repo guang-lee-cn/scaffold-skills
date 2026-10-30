@@ -177,8 +177,8 @@ else
   root="$(sed -n 's/^SCAFFOLD_ROOT:[[:space:]]*//p' "$PJ" | head -1)"
   if [ -z "$root" ]; then
     bad "pj-config.md 无 SCAFFOLD_ROOT（脚手架移动后无法定位规范）"
-  elif [ ! -f "$root/scaffold/sop/协作流程-通用版.md" ]; then
-    bad "SCAFFOLD_ROOT=$root 下找不到 scaffold/sop/协作流程-通用版.md"
+  elif [ ! -f "$root/scaffold/sop/collaboration-flow.md" ]; then
+    bad "SCAFFOLD_ROOT=$root 下找不到 scaffold/sop/collaboration-flow.md"
   elif [ "$root" != "$REPO" ]; then
     warn "SCAFFOLD_ROOT=$root，但当前脚手架在 $REPO（两处不一致，择一改）"
   fi

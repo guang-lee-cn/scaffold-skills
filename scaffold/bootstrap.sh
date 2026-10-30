@@ -109,26 +109,26 @@ put "$SCAFFOLD/templates/skills.conf.tpl" "$DEST/skills/skills.conf"
 
 # ── 进度 / 台账 / 状态 / 偏离 / 回流候选
 # 进度.md 是「卡片做到哪了」的唯一落点：一屏读完，省掉「现在做到哪」这类提问
-sed -e "s#__PROJECT__#$NAME#g" "$SCAFFOLD/templates/进度.md.tpl" \
+sed -e "s#__PROJECT__#$NAME#g" "$SCAFFOLD/templates/progress.md.tpl" \
   | gen "$DEST/docs/开发交付/进度.md"
-put "$SCAFFOLD/templates/问题台账.md.tpl"   "$DEST/docs/开发交付/问题台账.md"
-put "$SCAFFOLD/templates/偏离记录.md.tpl"   "$DEST/docs/开发交付/偏离记录.md"
-put "$SCAFFOLD/templates/开发状态.md.tpl"   "$DEST/docs/开发交付/开发状态.md"
-sed -e "s#__PROJECT__#$NAME#g" "$SCAFFOLD/templates/回流候选.md.tpl" \
+put "$SCAFFOLD/templates/issue-ledger.md.tpl"   "$DEST/docs/开发交付/问题台账.md"
+put "$SCAFFOLD/templates/deviation-log.md.tpl"   "$DEST/docs/开发交付/偏离记录.md"
+put "$SCAFFOLD/templates/dev-status.md.tpl"   "$DEST/docs/开发交付/开发状态.md"
+sed -e "s#__PROJECT__#$NAME#g" "$SCAFFOLD/templates/feedback-candidates.md.tpl" \
   | gen "$DEST/docs/开发交付/回流候选.md"
 
 # ── 角色规范骨架：只含职责/边界/红线/自检，编码与流程靠引用
-put "$SCAFFOLD/templates/角色规范-Dev.tpl" "$DEST/docs/开发交付/角色规范/Dev.md"
-put "$SCAFFOLD/templates/角色规范-QA.tpl"  "$DEST/docs/开发交付/角色规范/QA.md"
+put "$SCAFFOLD/templates/role-dev.tpl" "$DEST/docs/开发交付/角色规范/Dev.md"
+put "$SCAFFOLD/templates/role-qa.tpl"  "$DEST/docs/开发交付/角色规范/QA.md"
 
 # ── 运作模板（不落盘的项目会自己发明第八种格式）：只给骨架，填不填随项目
-put "$SCAFFOLD/templates/任务卡.tpl"       "$DEST/docs/开发交付/模板/任务卡.md"
+put "$SCAFFOLD/templates/task-card.tpl"       "$DEST/docs/开发交付/模板/任务卡.md"
 put "$SCAFFOLD/templates/thread.md.tpl"    "$DEST/docs/开发交付/模板/卡线程.md"
-put "$SCAFFOLD/templates/QA评审报告.tpl"   "$DEST/docs/开发交付/模板/QA评审报告.md"
-put "$SCAFFOLD/templates/Dev交接.tpl"      "$DEST/docs/开发交付/模板/Dev交接.md"
-put "$SCAFFOLD/templates/复盘报告.tpl"     "$DEST/docs/开发交付/模板/复盘报告.md"
-put "$SCAFFOLD/templates/架构师周总结.tpl" "$DEST/docs/开发交付/模板/架构师周总结.md"
-put "$SCAFFOLD/templates/外部案例库.md.tpl" "$DEST/docs/开发交付/外部案例库.md"
+put "$SCAFFOLD/templates/qa-review-report.tpl"   "$DEST/docs/开发交付/模板/QA评审报告.md"
+put "$SCAFFOLD/templates/dev-handoff.tpl"      "$DEST/docs/开发交付/模板/Dev交接.md"
+put "$SCAFFOLD/templates/retrospective.tpl"     "$DEST/docs/开发交付/模板/复盘报告.md"
+put "$SCAFFOLD/templates/architect-weekly-summary.tpl" "$DEST/docs/开发交付/模板/架构师周总结.md"
+put "$SCAFFOLD/templates/external-case-library.md.tpl" "$DEST/docs/开发交付/外部案例库.md"
 
 # ── AI 入口：项目根 CLAUDE.md（新 AI 唯一入口，不复制规范正文）
 sed -e "s#__PROJECT__#$NAME#g" -e "s#__SCAFFOLD_ROOT__#$REPO#g" \
@@ -143,18 +143,18 @@ gen "$DEST/docs/开发交付/工程流程.md" <<EOF
 
 | 内容 | 唯一源 |
 |---|---|
-| 最高准则（四条，约束一切 SOP 与技能） | \`$REPO/scaffold/policies/最高准则.md\` |
-| 协作流程（执行形态 / 角色 / 门禁 / 复审） | \`$REPO/scaffold/sop/协作流程-通用版.md\` |
-| 方案评审门禁 | \`$REPO/scaffold/policies/方案评审门禁.md\` |
-| Git 规范（粒度 / 放行 / 历史） | \`$REPO/scaffold/policies/git规范.md\` |
-| 门禁口径（防假绿） | \`$REPO/scaffold/policies/门禁口径唯一.md\` |
-| 泄漏归属判定 | \`$REPO/scaffold/policies/泄漏归属判定.md\` |
-| Token 纪律 | \`$REPO/scaffold/policies/token纪律.md\` |
-| 调研先行与外部案例库 | \`$REPO/scaffold/policies/调研先行.md\` |
+| 最高准则（四条，约束一切 SOP 与技能） | \`$REPO/scaffold/policies/top-principles.md\` |
+| 协作流程（执行形态 / 角色 / 门禁 / 复审） | \`$REPO/scaffold/sop/collaboration-flow.md\` |
+| 方案评审门禁 | \`$REPO/scaffold/policies/design-review-gate.md\` |
+| Git 规范（粒度 / 放行 / 历史） | \`$REPO/scaffold/policies/git-rules.md\` |
+| 门禁口径（防假绿） | \`$REPO/scaffold/policies/single-gate-definition.md\` |
+| 泄漏归属判定 | \`$REPO/scaffold/policies/leak-attribution.md\` |
+| Token 纪律 | \`$REPO/scaffold/policies/token-discipline.md\` |
+| 调研先行与外部案例库 | \`$REPO/scaffold/policies/research-first.md\` |
 | 跨环境文件操作与命令执行（wsl2 / 本地 / 远程） | \`$REPO/scaffold/policies/tool-bridge.md\` |
-| 规范该写什么（约束/判据/手段）、DoD 四块、规则的准入与退役 | \`$REPO/scaffold/policies/约束与判据.md\` |
-| 角色规范骨架（Dev / QA） | \`$REPO/scaffold/templates/角色规范-Dev.tpl\`、\`角色规范-QA.tpl\` |
-| 提交信息格式 | \`$REPO/scaffold/policies/commit信息.md\` |
+| 规范该写什么（约束/判据/手段）、DoD 四块、规则的准入与退役 | \`$REPO/scaffold/policies/constraints-and-criteria.md\` |
+| 角色规范骨架（Dev / QA） | \`$REPO/scaffold/templates/role-dev.tpl\`、\`role-qa.tpl\` |
+| 提交信息格式 | \`$REPO/scaffold/policies/commit-messages.md\` |
 | 技能写作原则 | \`$REPO/scaffold/skills/skill-writing-principles.md\` |
 
 ## 本项目特有
@@ -189,7 +189,7 @@ if [ "$WITH_GIT" -eq 1 ]; then
       mkdir -p "$DEST/.git/hooks"
       cat > "$HOOK" <<'HOOKEOF'
 #!/bin/bash
-# 由 scaffold bootstrap 安装：提交信息检查（规则见 policies/commit信息.md）
+# 由 scaffold bootstrap 安装：提交信息检查（规则见 policies/commit-messages.md）
 exec bash "$(git rev-parse --show-toplevel)/quality/commit-lint.sh" "$1"
 HOOKEOF
       chmod +x "$HOOK"

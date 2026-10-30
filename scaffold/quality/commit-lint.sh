@@ -1,5 +1,5 @@
 #!/bin/bash
-# 提交信息检查。规则唯一权威在 scaffold/policies/commit信息.md，本脚本只执行、不新增规则。
+# 提交信息检查。规则唯一权威在 scaffold/policies/commit-messages.md，本脚本只执行、不新增规则。
 # 用法：bash quality/commit-lint.sh <msg-file>      # 手工跑或给别的脚本调
 #       bootstrap 会把它装成 .git/hooks/commit-msg，提交时自动跑
 # 退出码：0 通过；1 违规（提交被拒）；2 用法错误
@@ -96,11 +96,11 @@ fi
 
 # ── 4. 黑话：需要读者额外背景才能解开的词 ──────────────────────────────────
 # 隐喻式名词（「收口」「回填」「掉」「假绿」）没法用正则判，只能靠自检：
-# 陌生人 30 秒读懂吗？判据写在 policies/commit信息.md §5，这里不假装能机械判定。
+# 陌生人 30 秒读懂吗？判据写在 policies/commit-messages.md §5，这里不假装能机械判定。
 
 if [ "$fail" -ne 0 ]; then
   echo "---" >&2
-  echo "规则：policies/commit信息.md（格式 / type / 禁项 / 判定三条）" >&2
+  echo "规则：policies/commit-messages.md（格式 / type / 禁项 / 判定三条）" >&2
   exit 1
 fi
 exit 0
