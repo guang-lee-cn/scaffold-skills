@@ -16,13 +16,32 @@ description: 成熟开源 C++ 项目的真实代码片段库，作编码范例�
 
 ## 用法
 
-1. 先选主题，再读对应文件：
-   - 公开面控制 / const / string_view / 测试密度 → [references/fmt.md](references/fmt.md)
-   - 基础类型设计 / StatusOr / span / 强类型 / 错误分层 → [references/abseil.md](references/abseil.md)
-   - 异步接口面 / handler 语义 / 关闭顺序 / 在途回调收敛 → [references/asio.md](references/asio.md)
+1. 先选主题，再读对应文件。样本分两类：
+   - **按库取的**（一个库把某件事做到极致的样本）：
+     - 公开面控制 / const / string_view / 测试密度 → [references/fmt.md](references/fmt.md)
+     - 基础类型设计 / StatusOr / span / 强类型 / 错误分层 → [references/abseil.md](references/abseil.md)
+     - 异步接口面 / handler 语义 / 关闭顺序 / 在途回调收敛 → [references/asio.md](references/asio.md)
+   - **按问题取的**（没有单一库能代表，用跨库对照回答「到什么程度为止」）：
+     - 并发原语 / 锁与数据的绑定 / 临界区边界 → [references/concurrency.md](references/concurrency.md)
+     - 所有权 / 归还时机 / 析构期能做什么 → [references/ownership.md](references/ownership.md)
+     - 抽象的度 / 类型擦除的代价 / 何时不该抽 → [references/abstraction.md](references/abstraction.md)
+     - 返回值 / 错误码分档 / 借码 / 回调内自我撤销 → [references/status-codes.md](references/status-codes.md)
 2. **「看什么」和「不看什么」两栏都要读。** 只看「看什么」会连同该项目的模板密度、宏和兼容层一起抄错。
-3. 对照自己的代码逐条问：这个决定可迁移，还是只是该项目的规模与历史包袱？
+3. 对照自己的代码逐条问：这个决定可迁移，还是只是该项目的规模与历史包袱？**尤其注意库与产品的差别**——七份样本大多来自通用库，它们的公开面纪律（自带视图、ABI 兼容、双标准入口）搬到单一产品里往往就是过度设计。
+4. `status-codes.md` 是唯一一份 C 样本。收入标准不是语言相同，而是**问题形态与语言无关**：返回值闭集、码值分档、回调归还控制权，这三件事在 C 与 C++ 里是同一个问题、同一类解，因此可迁移；C 的 `goto` 清理梯、宏泛型、手工生命周期则不在样本范围内。
+
+## 版本锚点
+
+「出处」里的 `master` / `main` 是流动的，行号会漂。复核顺序：
+
+1. 按「出处」的路径抓回同一文件；
+2. 行号对不上但**内容还在** → 版本漂移，样本仍然有效，把行号更新掉；
+3. 内容本身变了（注释被改写、签名被改） → 样本过期，重取并更新抓取日期。
+
+所以引用样本时，「文件 + 函数名或注释首句」比「行号」可靠；行号只是当日快照的定位辅助。
 
 ## 红线
 
-范例只用来对照，不复制代码。开源许可证（MIT / Apache-2.0 / BSL-1.0 等）都带署名与声明义务；片段进入自己的仓库前必须过许可证审查。不确定就不抄，只学结构与契约。
+范例只用来对照，不复制代码。开源许可证（MIT / Apache-2.0 / BSD-2-Clause / BSL-1.0 等）都带署名与声明义务；片段进入自己的仓库前必须过许可证审查。不确定就不抄，只学结构与契约。
+
+**源码可得 ≠ 可转录。** SSPLv1、RSALv2、BUSL、以及大部分「源码可见」许可都不是 OSI 认可的开源许可，不能进白名单：这类项目只能在「出处」里点名、用文字描述其机制，片段一律不转录（`status-codes.md` 对 redis 即按此处理）。

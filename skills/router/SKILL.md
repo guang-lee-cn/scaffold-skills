@@ -58,7 +58,7 @@ description: 派发与路由调度。决定当前阶段该用哪个技能，以�
 
 | 角色 | 必装 | 派发时必须交代 |
 |---|---|---|
-| 架构师（常驻） | `router` + `iso` + 全部 policies | 裁决权、唯一写状态文件、自己实现的卡不得自行充当独立评审 |
+| 架构师（常驻） | `router` + `iso` + 全部 policies；亲自实现时另装 `cpp-exemplars`、`comment-policy`、`test-naming-and-structure`（编码样本与注释纪律不在 policies 里） | 裁决权、唯一写状态文件、自己实现的卡不得自行充当独立评审 |
 | Dev | `iso`（`operations/cpp.md`）、`comment-policy`、`test-naming-and-structure`、`error-code-classification` | 文件范围、契约、禁止项、门禁命令、提交格式。**上下文已在架构师手里时不派** |
 | QA | `ai-code-review` | 评审对象的 commit、独立用例、finding schema、不许复用 Dev 的断言当唯一证据。这是「独立性」的主承担者，不可省 |
 | 复盘 owner | `review/incident-review` | 证据包路径、三层根因要求 |
