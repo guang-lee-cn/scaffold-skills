@@ -10,7 +10,7 @@
     2. catalog ↔ 目录一致：每个含 SKILL.md 的目录都在 catalog 里，反之亦然
     3. 相对链接可解析（skills/ 与 scaffold/ 一起查）
     4. 内容完全相同的重复文件（警告）
-    5. 零引用的 policies / templates / sop（警告——熵的度量，SOP §11.4 的删除候选）
+    5. 零引用的 scaffold 资产：policies / templates / sop / agents / skills（警告——熵的度量，SOP §11.4 的删除候选）
     6. 触发词冲突（警告——两个技能抢同一个触发词，路由会靠猜）
 
 不做的事：不校验措辞、不校验技能内容质量——那些靠评审。
@@ -51,6 +51,9 @@ def parse_frontmatter(path):
             last_key = m.group(1)
             value = m.group(2).strip()
             folded = value in (">", "|", ">-", "|-")
+            # 引号标量：剥掉包裹引号，否则收尾引号会漏进 catalog 触发词
+            if not folded and len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
+                value = value[1:-1].strip()
             fm[last_key] = "" if folded else value
         elif last_key and line.strip():
             # 续行：多行标量；折叠块（>）按空格展平成一行
@@ -186,7 +189,8 @@ def check_zero_ref():
     """
     warns = []
     targets = []
-    for sub in ("policies", "templates", "sop"):
+    # review/ 不进：回流留档是 append-only 档案，零引用是常态而非熵
+    for sub in ("policies", "templates", "sop", "agents", "skills"):
         targets += [p for p in walk(os.path.join(SCAFFOLD, sub)) if p.endswith((".md", ".tpl"))]
     corpus = {}
     for path in walk(REPO):
