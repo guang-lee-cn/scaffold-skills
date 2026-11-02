@@ -18,7 +18,7 @@
 **非目标**，明确不做，免得误用：
 
 - **不是包管理器**——不替项目下载或安装工具。缺依赖时产出精确命令交给人执行，不由脚手架动宿主
-- **不把资产复制进项目仓库**——`scaffold/` 与 `skills/` 不进项目，项目侧永远是指针（`SCAFFOLD_ROOT` + 软链 + 清单）。代价是项目**不能独立搬移**：换机器、换人、进 CI 之前必须重跑 `bootstrap.sh` 与两个装载器
+- **不把规范与技能复制进项目仓库**——policies / sop / templates 与 `skills/` 不进项目，项目侧永远是指针（`SCAFFOLD_ROOT` + 软链 + 清单）。唯一例外是 `quality/` 执行链（run_gate / aggregate_quality / check-flywheel / commit-lint / gates.conf / deps.conf）：门禁要随项目进 CI、`runs/` 数据落项目，bootstrap 以副本落盘（见 `bootstrap.sh`「质量飞轮」注释）。代价是项目**不能独立搬移**：换机器、换人、进 CI 之前必须重跑 `bootstrap.sh` 与两个装载器
 - **不提供实现步骤**——技能只写流程与验收面，具体怎么写代码属于项目自己
 - **不适合没有证据需求的项目**——一次性脚本、不设门禁的场景，用这套是纯开销
 
@@ -75,7 +75,7 @@ python3 scaffold/skill-lint.py --write                       # 重新生成 rout
 
 ## 演进原则
 
-- **单一源**：技能本体只有 `skills/` 一份，流程规范只有 `scaffold/` 一份。项目里不放副本，只放清单与索引（`bootstrap.sh` 生成的 `docs/开发交付/工程流程.md` 就是索引，指向本仓路径）
+- **单一源**：技能本体只有 `skills/` 一份，流程规范只有 `scaffold/` 一份。项目里不放副本，只放清单与索引（`bootstrap.sh` 生成的 `docs/开发交付/工程流程.md` 就是索引，指向本仓路径；quality 门禁执行链是声明过的复制例外，见「目标与非目标」）
 - `scaffold/` 只装**项目无关**资产；项目特定参数（命令、仓库、里程碑）一律进 `pj-config.md` + `gates.conf`
 - 门禁口径唯一、先 RUN 再 claim、实证定级（见 `scaffold/policies/`）
 - 换一个项目还能用的 → 回流本仓库；只有本项目用的 → 留在项目内
