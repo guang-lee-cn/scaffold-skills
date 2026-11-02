@@ -165,7 +165,11 @@ else
   for key in pj-config.md 工程流程.md; do
     grep -qF "$key" "$ENTRY" || bad "CLAUDE.md 没有路由到 $key（多半是项目原有文件被保留，入口没写入）"
   done
-  n_e="$(grep -c '<[^>][^>]*>' "$ENTRY" || true)"
+  # 占位口径与 pj-config 一致：只把「不在路径里」的 <...> 算未填。路径模板
+  # （`quality/runs/<日期>/<run>/summary.json`）里的尖括号是路径声明本身，
+  # 算成待办会让每个项目长期挂一条假待办。判据：紧邻 / 的 <...> 先剥掉再数。
+  n_e="$(sed -E -e 's#/<[^<>]+>#/#g' -e 's#<[^<>]+>/#/#g' "$ENTRY" \
+    | grep -c '<[^<>][^<>]*>' || true)"
   [ "$n_e" -gt 0 ] && todo "CLAUDE.md 还有 $n_e 个 <占位> 没填"
 fi
 
