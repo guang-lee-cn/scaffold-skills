@@ -8,7 +8,7 @@
 
 先把 [router/](router/SKILL.md) 装上。它回答两件事：当前阶段该用哪个技能；架构师派活时必须把哪五样装进派发包（角色与边界 / 目标 / 验收判据 / 证据落点 / 必装技能）。没有这一层，角色信息只活在对话里，压缩一次就没了。
 
-## 现有技能（12 个）
+## 现有技能（13 个）
 
 | 技能 | 管什么 |
 |---|---|
@@ -18,6 +18,7 @@
 | [review/incident-review/](review/incident-review/SKILL.md) | 事故复盘纪律（SRE × 中文复盘三源） |
 | [architecture-support-brief/](architecture-support-brief/SKILL.md) | 评审答辩包：结论前置、可独立阅读 |
 | [report/](report/SKILL.md) | 研究报告呈现层：可读、可落地、可追溯 |
+| [research/](research/SKILL.md) | 技术调研执行层：8 大思考接口、完整研究流程、审计钩子三张表（成文呈现归 report） |
 | [test-naming-and-structure/](test-naming-and-structure/SKILL.md) | 用例命名（GWT）与结构（AA-FCP） |
 | [comment-policy/](comment-policy/SKILL.md) | 注释四分类：留契约、迁决策、删复述、删治理 |
 | [error-code-classification/](error-code-classification/SKILL.md) | 错误码两面判定：契约面 vs 观测面 |
