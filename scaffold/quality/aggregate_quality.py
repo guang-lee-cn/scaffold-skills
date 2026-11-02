@@ -121,9 +121,14 @@ def dur_change(series):
 
 
 def render_md(rows, names, max_charts=MAX_CHARTS):
+    ev = sum(1 for r in rows if r.get("evidence"))
+    total = len(rows)
     L = ["# 门禁趋势（数据飞轮-分析环产出）", "",
          "> 自动生成：`python3 aggregate_quality.py`"
          "（输入 `quality/runs/*/*/summary.json`，兼容旧 `quality/gate-*.json`）", "",
+         "**证据级 run 占比：%d/%d（%.0f%%）**——先看这个数，再谈趋势；"
+         "混在里面的非证据级 run 只是开发信号，不是交付信号。"
+         % (ev, total, 100.0 * ev / total if total else 0.0), "",
          "## 明细（每次 run）", "",
          "| run | 批次 | 日期 | 证据级 | " + " | ".join(names) + " | 红门 |",
          "|" + "---|" * (len(names) + 5)]

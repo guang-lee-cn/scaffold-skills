@@ -1,15 +1,22 @@
 # 门禁配置（Scaffold 数据飞轮-采集环）
-# 格式：name|执行命令[|输出解析正则]
-#   name   = 门禁名（JSON 中保留，趋势表列名）
-#   命令   = 判定口径：exit 0 = PASS；非 0 = FAIL（单项失败不中断整批）
+# 格式：name|执行命令[|输出解析正则[|启用阶段[|构建 profile]]]
+#   name   = 门禁名（JSON 中保留，趋势表列名；写进批次/检查点位置会被 run_gate 判 FAIL）
+#   命令   = 判定口径：exit 0 = PASS；非 0 = FAIL（单项失败不中断整批）；exit 77 = SKIP
 #   正则   = 可选，从命令输出提取展示值（value），POSIX ERE：数字写 [0-9]，不要写 \d
 #            （\d 在 GNU grep 的 -E 下未定义，静默匹配不到）；不填则 value = "exit 0"
+#   阶段   = S0..S5（缺省 S0）。`--stage S<n>` 给出当前阶段；未到启用阶段的记录
+#            SKIP(77)，在 summary.json 里计入 skip、不计入 pass。配置里有 S1 及以上的门
+#            而没给阶段 => FAIL（不折成 S0）。全 SKIP 的 run 与全 PASS 在 overall 上同为
+#            PASS，读证据时必须看 skip 计数与 reason。
+#   profile = 可选，缺省 none；表示该门需要 run_gate 先产出一个专用构建再注入（如 coverage）
 # 原则：一门禁一命令（唯一口径，防两套命令两个结果）
 #       命令缺失 → FAIL；配了正则但输出里匹配不到 → 也 FAIL（指标消失不等于通过）
+#       点名的门禁名不在本文件里 → FAIL（拼错的名字不许静默跑一个更小的集合）
 # 示例（替换为项目自己的构建/测试/静态扫描命令，一行一门）：
-build|bash scripts/build.sh
-test|ctest --output-on-failure|out of ([0-9]+)
-coverage|bash scripts/run_coverage.sh|line ([0-9.]+)%
-valgrind|bash scripts/run_valgrind.sh|ERROR SUMMARY: ([0-9]+) errors
-lint|python3 scripts/run_lint.sh
-compliance|bash scripts/run_compliance.sh
+build|bash scripts/build.sh||S0
+test|ctest --output-on-failure|out of ([0-9]+)||S0
+coverage|bash scripts/run_coverage.sh|line ([0-9.]+)%|S2|coverage
+valgrind|bash scripts/run_valgrind.sh|ERROR SUMMARY: ([0-9]+) errors||S3
+tsan|bash scripts/run_tsan.sh|WARNING: ThreadSanitizer: ([0-9]+)||S4
+lint|python3 scripts/run_lint.sh||S0
+compliance|bash scripts/run_compliance.sh||S5

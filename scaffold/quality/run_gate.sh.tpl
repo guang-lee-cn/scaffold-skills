@@ -1,11 +1,13 @@
 #!/bin/bash
 # 数据飞轮-采集环（Scaffold 通用门禁）：逐门禁执行 gates.conf → quality/runs/<日期>/<run-id>/
 #   每次 run 一个目录：<run-id>/summary.json 汇总；<gate>/gate.json + stdout.log + stderr.log 留单门明细
-# 用法：bash quality/run_gate.sh [batch标记] [--allow-dirty] [--allow-open-batches]
+# 用法：bash quality/run_gate.sh [--stage Sx] [batch标记] [checkpoint] [gate ...] [--allow-dirty] [--allow-open-batches]
 #   batch 缺省为 UTC 日期；run-id = <batch>-<UTC 时间戳>Z（例 EP-01-20261027T061500Z）
+#   阶段：--stage Sx（或第一个位置参数本身是 S<n>，或环境变量 GATE_STAGE）；gates.conf
+#         里有阶段门禁而没给阶段 => FAIL。未到启用阶段的记录 SKIP(77)，不计入 PASS。
 # 依赖：bash + git(可选) + python3 + grep（零外部工具）
 # 正则口径：POSIX ERE，数字写 [0-9]（\d 在 GNU grep 下未定义，会静默取不到值）
-# 格式：name|命令|取数正则(可选)；命令自身含 | 会被当成第三列（需要管道就包一层脚本）
+# 格式：name|命令|取数正则(可选)|启用阶段(可选，缺省 S0)|构建 profile(可选)；命令自身含 | 会被当成第三列（需要管道就包一层脚本）
 # 证据级：git.dirty == 0 且 commit 非空，本次 run 才算证据；否则只能当调试记录
 # 脏树在开跑前直接拒绝（exit 2）：跑完再警告等于白跑一趟，而门禁要的是证据不是全绿
 # 门禁 exit 77 = 主动跳过（记 SKIP，不算失败）
@@ -21,9 +23,10 @@ TMP="$DIR/.gates.tmp"
 
 usage() {
   cat <<'EOF'
-用法：bash quality/run_gate.sh [batch标记] [--allow-dirty] [--allow-open-batches]
+用法：bash quality/run_gate.sh [--stage Sx] [batch标记] [--allow-dirty] [--allow-open-batches]
   batch 缺省为 UTC 日期；run-id = <batch>-<UTC时间戳>Z
   产物：quality/runs/<日期>/<run-id>/{summary.json, <gate>/{gate.json,stdout.log,stderr.log}}
+  --stage S<n>           启用到第 n 阶段的门（未到的记 SKIP(77)，不算 PASS）
   --allow-dirty          脏树也开跑（该 run 记 dirty>0，不是证据级）
   --allow-open-batches   上一批未关闭也开跑（新项目接手旧进度表时用）
 EOF
@@ -36,19 +39,105 @@ for arg in "$@"; do
 done
 [ -f "$CFG" ] || { echo "缺 gates.conf（参考 gates.conf.example 生成）"; exit 1; }
 
-# 参数：唯一位置参数是批标记。--allow-dirty 只影响开跑前这一道判树；
-# --allow-open-batches 只影响批次表前置（上一批没关也照跑，用于新项目接手旧进度表）
+# 参数：--stage 先摘出，其余按位置取（batch / checkpoint / gate 过滤）。
+# --allow-dirty 只影响开跑前这一道判树；--allow-open-batches 只影响批次表前置。
+STAGE_NAME=""
+STAGE_EXPLICIT=0
 ALLOW_DIRTY=0
 ALLOW_OPEN_BATCHES=0
-BATCH=""
-for arg in "$@"; do
-  case "$arg" in
-    --allow-dirty) ALLOW_DIRTY=1 ;;
-    --allow-open-batches) ALLOW_OPEN_BATCHES=1 ;;
-    *) [ -z "$BATCH" ] && BATCH="$arg" ;;
+POSITIONAL=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --allow-dirty) ALLOW_DIRTY=1; shift ;;
+    --allow-open-batches) ALLOW_OPEN_BATCHES=1; shift ;;
+    --stage)
+      [ $# -ge 2 ] || { echo "FAIL: --stage needs a value (e.g. --stage S2)" >&2; exit 1; }
+      [ "$STAGE_EXPLICIT" -eq 0 ] || { echo "FAIL: --stage given twice" >&2; exit 1; }
+      STAGE_NAME="$2"; STAGE_EXPLICIT=1; shift 2 ;;
+    --stage=*)
+      [ "$STAGE_EXPLICIT" -eq 0 ] || { echo "FAIL: --stage given twice" >&2; exit 1; }
+      STAGE_NAME="${1#--stage=}"; STAGE_EXPLICIT=1; shift ;;
+    --) shift; POSITIONAL+=("$@"); break ;;
+    *) POSITIONAL+=("$1"); shift ;;
   esac
 done
+if [ ${#POSITIONAL[@]} -gt 0 ]; then set -- "${POSITIONAL[@]}"; else set --; fi
+BATCH="${1:-}"; [ $# -gt 0 ] && shift
+CHECKPOINT="${1:-S0}"; [ $# -gt 0 ] && shift
+FILTER=("$@")
 [ -n "$BATCH" ] || BATCH="$(date -u +%F)"
+
+trim() { local s="$1"; s="${s#"${s%%[![:space:]]*}"}"; s="${s%"${s##*[![:space:]]}"}"; printf '%s' "$s"; }
+
+# ---- 阶段与位置参数：先校验再使用，缺上下文一律 FAIL，不折成 S0 --------------
+# 全量校验阶段字段：只在校中被选中的门禁上查，触发时 run 目录与部分 gate.json
+# 已经落盘，留下没有 summary.json 的半成品 run。
+while IFS='|' read -r _p_name _p_cmd _p_re _p_stage _p_profile; do
+  _p_name="$(trim "${_p_name%$'\r'}")"
+  [ -z "$_p_name" ] && continue
+  case "$_p_name" in \#*) continue;; esac
+  printf '%s' "${_p_stage:-S0}" | grep -qE '^S[0-9]+$' \
+    || { echo "FAIL: gate '$_p_name' has invalid stage '$_p_stage' in $CFG" >&2; exit 1; }
+done < "$CFG"
+
+# 位置参数串位守卫：门禁名写进批次/检查点位时会被静静吃掉——这一 run 照常 PASS，
+# 只是少跑了一门，退出码仍是 0。批次名或检查点名与 gates.conf 里的门禁同名 => FAIL。
+gate_named() {
+  awk -F'|' -v want="$1" '
+    /^[[:space:]]*#/ || /^[[:space:]]*$/ { next }
+    { n = $1; gsub(/[[:space:]]/, "", n); if (n == want) { found = 1; exit } }
+    END { exit(found ? 0 : 1) }
+  ' "$CFG"
+}
+for slot_name in "$BATCH" "$CHECKPOINT"; do
+  if gate_named "$slot_name"; then
+    echo "FAIL: '$slot_name' 是 gates.conf 里的门禁名，却落在批次/检查点位置上" >&2
+    echo "      用法：run_gate.sh [--stage Sx] [batch] [checkpoint] [gate ...]" >&2
+    exit 1
+  fi
+done
+
+# 未知门禁名必须 FAIL：否则拼错的名字会静默跑一个更小的集合却报绿。
+if [ ${#FILTER[@]} -gt 0 ]; then
+  KNOWN_GATES="$(awk -F'|' '/^[[:space:]]*#/ || /^[[:space:]]*$/ {next} {print $1}' "$CFG")"
+  for requested in "${FILTER[@]}"; do
+    printf '%s\n' "$KNOWN_GATES" | grep -qxF -- "$requested" \
+      || { echo "FAIL: unknown gate '$requested' (not in $CFG)" >&2; exit 1; }
+  done
+fi
+
+has_staged_gates() {
+  awk -F'|' '
+    /^[[:space:]]*#/ || /^[[:space:]]*$/ { next }
+    { s = $4; gsub(/[[:space:]]/, "", s)
+      if (s ~ /^S[0-9]+$/ && substr(s, 2) + 0 > 0) { found = 1; exit } }
+    END { exit(found ? 0 : 1) }
+  ' "$CFG"
+}
+
+if [ "$STAGE_EXPLICIT" -eq 1 ]; then
+  printf '%s' "$BATCH" | grep -qE '^S[0-9]+$' \
+    && { echo "FAIL: stage given twice (--stage $STAGE_NAME and positional $BATCH)" >&2; exit 1; }
+elif printf '%s' "$BATCH" | grep -qE '^S[0-9]+$'; then
+  STAGE_NAME="$BATCH"   # 兼容：第一个位置参数本身就是阶段
+elif [ -n "${GATE_STAGE:-}" ]; then
+  STAGE_NAME="$GATE_STAGE"
+fi
+if [ "$STAGE_EXPLICIT" -eq 1 ] && [ -z "$STAGE_NAME" ]; then
+  echo "FAIL: --stage needs S<number>; the value given is empty" >&2; exit 1
+fi
+if [ -n "$STAGE_NAME" ] && ! printf '%s' "$STAGE_NAME" | grep -qE '^S[0-9]+$'; then
+  echo "FAIL: invalid stage '$STAGE_NAME' (want S<number>, e.g. S2)" >&2; exit 1
+fi
+if [ -z "$STAGE_NAME" ]; then
+  if has_staged_gates; then
+    echo "FAIL: no stage given and $CFG has stage-gated entries;" \
+         "pass --stage S<number> or set GATE_STAGE" >&2
+    exit 1
+  fi
+  STAGE_NAME="S0"
+fi
+STAGE_NUM="${STAGE_NAME#S}"
 
 # 开跑前判树。例外放采集环自己的产物（runs/ 整个子树、trend.md、.gates.tmp、旧格式 gate-*.json）；
 # 取不到 git 状态时（非 git 项目）不拦，由末尾按 commit 空 / dirty=-1 记非证据级。
@@ -77,8 +166,6 @@ if [ "$ALLOW_OPEN_BATCHES" -eq 0 ] && [ -f "$DIR/check-flywheel.sh" ]; then
     exit 3
   fi
 fi
-
-trim() { local s="$1"; s="${s#"${s%%[![:space:]]*}"}"; s="${s%"${s##*[![:space:]]}"}"; printf '%s' "$s"; }
 
 # 零门禁 ≠ 全绿：配了注释/空文件也 exit 0 的话，聚合环会把它当证据级批次。
 # 先数一遍再建 run 目录，避免留下空 run。
@@ -143,16 +230,27 @@ with open(path, "w", encoding="utf-8") as f:
 PYEOF
 }
 
+# 点名跑（gate ...）只跑选中的门；点名时不存在的名字已在前面 FAIL
+is_selected() {
+  [ ${#FILTER[@]} -eq 0 ] && return 0
+  local g
+  for g in "${FILTER[@]}"; do [ "$g" = "$1" ] && return 0; done
+  return 1
+}
+
 # 末行无换行也要跑（read 在 EOF 处返回非零但变量已填）：否则最后一门禁静默消失
-while IFS='|' read -r name cmd re || [ -n "$name" ]; do
+while IFS='|' read -r name cmd re stage profile || [ -n "$name" ]; do
   # 行级归一：CRLF 的 \r、列两侧空白（按表格式对齐写的配置不该误红）
   name="$(trim "${name%$'\r'}")"
   cmd="$(trim "${cmd%$'\r'}")"
   re="$(trim "${re%$'\r'}")"
+  stage="$(trim "${stage%$'\r'}")"
+  stage="${stage:-S0}"
   # Windows 侧编辑器可能写 BOM：不剥掉的话第一个门禁名会变成 <BOM>unit，列名对不上
   name="${name#$'\xef\xbb\xbf'}"
   [ -z "$name" ] && continue
   case "$name" in \#*) continue;; esac
+  is_selected "$name" || continue
   count=$((count+1))
 
   # 门禁名不改写：静默把 "my gate" 变成 "mygate" 会让跨批次的列名对不上。
@@ -172,6 +270,15 @@ while IFS='|' read -r name cmd re || [ -n "$name" ]; do
     write_gate_json "$gdir/gate.json" "$name" "$cmd" FAIL 2 "$started" 0 "$reason" ""
     echo "[FAIL] $name: 门禁名含空白、斜杠或为 . / ..（列名会与历史批次对不上）"
     fails=$((fails+1))
+    continue
+  fi
+
+  # 未到启用阶段：不执行命令，按 SKIP 记录。SKIP 不是 PASS——全 SKIP 的 run
+  # 与全 PASS 在 overall 上是同一行，读证据的人必须看 skip 计数与 reason。
+  if [ "$STAGE_NUM" -lt "${stage#S}" ]; then
+    reason="not enabled before $stage (current $STAGE_NAME)"
+    write_gate_json "$gdir/gate.json" "$name" "$cmd" SKIP 77 "$started" 0 "$reason" ""
+    echo "[SKIP] $name: $reason"
     continue
   fi
 
@@ -229,10 +336,10 @@ while IFS='|' read -r name cmd re || [ -n "$name" ]; do
   fi
 done < "$CFG"
 
-python3 - "$BATCH" "$QUALITY" "$ROOT" "$run_dir" "$TMP" "$run_id" <<'PYEOF'
+python3 - "$BATCH" "$QUALITY" "$ROOT" "$run_dir" "$TMP" "$run_id" "$STAGE_NAME" "$CHECKPOINT" <<'PYEOF'
 import json, os, subprocess, sys
 
-batch, quality, root, run_dir, manifest, run_id = sys.argv[1:7]
+batch, quality, root, run_dir, manifest, run_id, stage, checkpoint = sys.argv[1:9]
 
 def git(*args):
     try:
@@ -306,7 +413,7 @@ n_fail = sum(1 for g in gates if g["status"] == "FAIL")
 n_skip = sum(1 for g in gates if g["status"] == "SKIP")
 overall = "FAIL" if n_fail else "PASS"
 
-doc = {"run_id": run_id, "batch": batch,
+doc = {"run_id": run_id, "batch": batch, "stage": stage, "checkpoint": checkpoint,
        "git": {"commit": commit, "branch": branch, "dirty": dirty},
        "overall": {"status": overall, "total": len(gates),
                    "pass": n_pass, "fail": n_fail, "skip": n_skip},
