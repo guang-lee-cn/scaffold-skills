@@ -83,3 +83,5 @@ git diff --name-status "$BASE"..HEAD
 - 一份裁决表：意见 / 裁决 / 理由 / 落到哪张卡
 - 方案升版时的变更摘要
 - 触发对弈时：对弈记录（三段式，见上）
+
+评审报告模板：`templates/design-review-report.tpl`（一份报告只出自一个评审者，两份不合并）。

@@ -26,6 +26,8 @@
 
 **并行 agent 各占一棵工作树时**，技能必须装进每棵树（`install-skills.sh --worktrees`）或装到 user 级；只在主检出装过，等于执行现场没有技能，清单对它们失效。
 
+机械动作（建树、装载命令、提交纪律、构建隔离、合并顺序）见 `policies/parallel-worktrees-and-dispatch.md`。
+
 角色定义（`.claude/agents/`，由 `install-agents.sh` 按清单 `[agents]` 分组装载）同理：它是派发时的提示词，缺了不报错，只是 subagent 退化成一个没有红线和判据的通用 agent。两者的差别记在 `scaffold/README.md`「角色定义装载」一节。
 
 **并行度由共享可变资源决定，不由工作量决定**：

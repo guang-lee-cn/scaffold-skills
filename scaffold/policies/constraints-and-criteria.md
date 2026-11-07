@@ -158,6 +158,8 @@
 
 没有数字的"高性能"、没有时长的"稳定性"、没有失败样本的"可靠性"，一律不算判据。
 
+性能测量的记录载体：`templates/perf-measurement.md.tpl`（一次测量一份，数字进报告前先把口径写成完整一句话）。
+
 ## 6. 角色规范的骨架
 
 角色规范（Dev / QA）只写四类内容：**职责、边界、红线、自检**。骨架见 `templates/role-dev.tpl`、`templates/role-qa.tpl`。
