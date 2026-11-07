@@ -59,10 +59,17 @@ scaffold-skills/
 **项目脚手架**（在新项目里）：
 
 ```bash
-bash scaffold/bootstrap.sh <项目名>
+bash scaffold/bootstrap.sh <项目名>          # 骨架 + 装技能 + 装提交钩子 + 自检
 ```
 
-然后填 `pj-config.md`（仓库/账号/里程碑）和 `quality/gates.conf`（项目自己的门禁命令），跑 `bash quality/run_gate.sh` 落第一个 run 目录（`summary.json`），再用 `python3 quality/aggregate_quality.py` 生成 `trend.md`。完整步骤见 [scaffold/README.md](scaffold/README.md)。
+首次布设四步（顺序别换）：
+
+1. 填 `pj-config.md` 的占位（仓库 / 账号 / 里程碑 / 落点）；
+2. 填 `quality/gates.conf`——**示例是 C++ 口径的占位**，直接跑会 5 红 2 跳过，这是"提醒你换命令"，不是脚手架坏了；
+3. 首次提交：`git commit -m 'chore(scaffold): 初始化项目骨架' -m '1. …'`——提交信息**必须带分条正文**，装的 `commit-msg` 钩子会拦没有正文的；
+4. 试跑首轮门禁：`bash quality/run_gate.sh <批次名> --stage S0`（示例配置含 S1+ 门，不给阶段会被拒）。
+
+**布设成功的三条判据**：`check-deploy.sh` 报「错误 0」；`pj-config.md` 与 `gates.conf` 没有未填占位；至少一个 run 的 `summary.json` 是 PASS 且 `git.dirty == 0`。完整步骤见 [scaffold/README.md](scaffold/README.md)。
 
 **技能库**：标准 skill 目录 `<组>/<skill-name>/SKILL.md`。装载走清单，不手工 symlink：
 

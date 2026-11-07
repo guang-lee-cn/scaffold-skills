@@ -40,6 +40,21 @@ skills/skills.conf               ← 技能清单（唯一权威）
 
 之后只剩两件事要人填：`pj-config.md` 的占位、`quality/gates.conf` 的命令。`check-deploy.sh` 会把没填的列成待办，把断了索引列成错误。
 
+### 首次布设的四步与预期现象
+
+| 步 | 命令 | 预期现象 |
+|---|---|---|
+| 1 | 填 `pj-config.md` | `check-deploy.sh` 的「待办」递减；这些是待办不是错误 |
+| 2 | 换掉 `quality/gates.conf` 的示例命令 | 示例是 C++ 口径（build/test/coverage/valgrind/tsan/lint/compliance），**首跑必然 5 红 2 跳过**——那是占位提示，不是故障 |
+| 3 | `git commit -m '<type>(<scope>): …' -m '1. …'` | 没有分条正文会被 `.git/hooks/commit-msg` 拒绝（`policies/commit-messages.md`） |
+| 4 | `bash quality/run_gate.sh <批次名> --stage S0` | 示例配置含 S1+ 门，缺 `--stage` 会被直接拒；`quality/runs/` 已在生成的 `.gitignore` 里，跑完树仍然是干净的 |
+
+**成功判据（三条全中才算布设完成）**：
+
+1. `bash scaffold/check-deploy.sh --project <根>` 输出「错误 0」；
+2. `pj-config.md` 与 `quality/gates.conf` 没有未填的 `<占位>`；
+3. 至少一个 `quality/runs/<日期>/<run-id>/summary.json` 是 `PASS` 且 `git.dirty == 0`。
+
 ## 数据飞轮（三环）
 ```
 采集  quality/run_gate.sh → runs/<日期>/<run-id>/summary.json（含 git.commit / branch / dirty）
