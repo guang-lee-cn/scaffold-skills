@@ -425,8 +425,10 @@ print("summary json ->", path)
 print("overall:", overall, "total=%d pass=%d fail=%d skip=%d" % (len(gates), n_pass, n_fail, n_skip))
 
 # 全 SKIP 与全 PASS 是同一行 overall=PASS：stage 未启用时最容易被当成已验收的证据
-if n_pass == 0:
-    print("[警告] 本次 run 没有一个门禁真正跑过（全部 SKIP）：不能当作通过证据")
+if n_pass == 0 and n_fail == 0:
+    print("[警告] 本次 run 全部 SKIP（阶段未启用）：不能当作通过证据")
+elif n_pass == 0:
+    print("[警告] 本次 run 没有一个门禁通过（fail=%d）：不可作为证据" % n_fail)
 
 if not commit:
     print("[警告] 取不到 commit：本次 run 不是证据级")

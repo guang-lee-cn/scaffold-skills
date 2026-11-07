@@ -231,8 +231,12 @@ done
 
 # 4. 装载产物不入库。问 git 本身，不认字面行：`/.claude/` 这类父目录写法同样有效，
 # 按行匹配会把已经生效的规则报成缺陷，警告就被训练成噪声了。
-if ! git -C "$PROJECT" check-ignore -q .claude/skills 2>/dev/null; then
-  bad ".gitignore 未忽略 .claude/skills（软链含绝对路径，会被提交）"
+if git -C "$PROJECT" rev-parse --git-dir >/dev/null 2>&1; then
+  if ! git -C "$PROJECT" check-ignore -q .claude/skills 2>/dev/null; then
+    bad ".gitignore 未忽略 .claude/skills（软链含绝对路径，会被提交）"
+  fi
+else
+  todo "非 git 仓库：无法验证 .gitignore 是否忽略 .claude/skills，git init 后重跑本自检"
 fi
 
 # 5. 门禁配置
@@ -311,8 +315,12 @@ if grep -q '^\[agents\]' "$CONF" 2>/dev/null; then
     bad "角色定义未装就绪——跑 bash $SCAFFOLD/install-agents.sh --project $PROJECT 看明细"
   fi
   # 与技能同一判据：软链含绝对路径，进了库换台机器就是断链
-  if ! git -C "$PROJECT" check-ignore -q .claude/agents 2>/dev/null; then
-    bad ".gitignore 未忽略 .claude/agents（角色定义软链含绝对路径，会被提交）"
+  if git -C "$PROJECT" rev-parse --git-dir >/dev/null 2>&1; then
+    if ! git -C "$PROJECT" check-ignore -q .claude/agents 2>/dev/null; then
+      bad ".gitignore 未忽略 .claude/agents（角色定义软链含绝对路径，会被提交）"
+    fi
+  else
+    todo "非 git 仓库：无法验证 .gitignore 是否忽略 .claude/agents，git init 后重跑本自检"
   fi
 fi
 

@@ -169,13 +169,16 @@ gen "$DEST/docs/开发交付/工程流程.md" <<EOF
 - 提交信息检查：\`.git/hooks/commit-msg\` → \`quality/commit-lint.sh\`（格式 / 分条上限 / 禁代号与署名）
 EOF
 
-# ── 装载产物不入库（技能目录 + 角色定义，两者都是含绝对路径的软链）
+# ── 不入库的三类：装载产物（软链含绝对路径）+ 门禁 run 目录（本地证据，不是源码）
 GI="$DEST/.gitignore"
 if [ ! -f "$GI" ]; then
-  printf '/.claude/\n' > "$GI"; echo "[写入] .gitignore"; written=$((written+1))
-# 老项目里多半还是 /.claude/skills/（只挡技能，挡不住角色定义），补一条 /.claude/
-elif ! grep -qx '/.claude/' "$GI"; then
-  printf '\n/.claude/\n' >> "$GI"; echo "[追加] .gitignore: /.claude/"; written=$((written+1))
+  printf '/.claude/\nquality/runs/\n' > "$GI"; echo "[写入] .gitignore"; written=$((written+1))
+else
+  for ig in '/.claude/' 'quality/runs/'; do
+    if ! grep -qxF "$ig" "$GI"; then
+      printf '%s\n' "$ig" >> "$GI"; echo "[追加] .gitignore: $ig"; written=$((written+1))
+    fi
+  done
 fi
 
 # ── 提交信息检查装进 git 钩子：规则进不了执行路径，就等于没有规则 ────────────
@@ -223,8 +226,10 @@ echo "  1) 填 pj-config.md 的 <占位>"
 echo "  2) 填 quality/gates.conf（换成本项目真实命令；示例是 C++ 口径）"
 echo "     可选：填 quality/deps.conf（门禁工具清单，check-deploy --deps 提前报缺失）"
 if [ "$WITH_GIT" -eq 1 ]; then
-  echo "  3) git add -A && git commit -m 'chore(scaffold): bootstrap' —— 门禁只认有 commit 的干净树"
-  echo "  4) bash quality/run_gate.sh <batch标记> 试跑首个批次"
+  echo "  3) git add -A && git commit -m 'chore(scaffold): 初始化项目骨架' -m '1. 首次布设：填 pj-config 与 gates.conf'"
+  echo "     —— 提交信息必须带分条正文（.git/hooks/commit-msg 会拦，规则见 policies/commit-messages.md）"
+  echo "  4) bash quality/run_gate.sh <batch标记> --stage S0 试跑首个批次"
+  echo "     —— 示例 gates.conf 含 S1+ 门；不给 --stage 会被拒（不是失败，是缺阶段）"
   echo "  5) 让 AI 从项目根 CLAUDE.md 开始读"
 else
   echo "  3) bash quality/run_gate.sh <batch标记> 试跑首个批次（非 git 项目：run 只能当调试记录）"

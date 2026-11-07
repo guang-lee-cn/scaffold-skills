@@ -14,7 +14,7 @@
 #       点名的门禁名不在本文件里 → FAIL（拼错的名字不许静默跑一个更小的集合）
 # 示例（替换为项目自己的构建/测试/静态扫描命令，一行一门）：
 build|bash scripts/build.sh||S0
-test|ctest --output-on-failure|out of ([0-9]+)||S0
+test|ctest --test-dir build --output-on-failure|out of ([0-9]+)||S0
 coverage|bash scripts/run_coverage.sh|line ([0-9.]+)%|S2|coverage
 valgrind|bash scripts/run_valgrind.sh|ERROR SUMMARY: ([0-9]+) errors||S3
 tsan|bash scripts/run_tsan.sh|WARNING: ThreadSanitizer: ([0-9]+)||S4
