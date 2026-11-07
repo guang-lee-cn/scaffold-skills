@@ -8,7 +8,7 @@
 
 先把 [router/](router/SKILL.md) 装上。它回答两件事：当前阶段该用哪个技能；架构师派活时必须把哪五样装进派发包（角色与边界 / 目标 / 验收判据 / 证据落点 / 必装技能）。没有这一层，角色信息只活在对话里，压缩一次就没了。
 
-## 现有技能（13 个）
+## 现有技能（15 个）
 
 | 技能 | 管什么 |
 |---|---|
@@ -25,6 +25,8 @@
 | [cpp-exemplars/](cpp-exemplars/SKILL.md) | 成熟 C++ 项目真实片段，作编码对照 |
 | [notion-diagram/](notion-diagram/SKILL.md) | 文档风格架构图（SVG） |
 | [essential-tool-install/](essential-tool-install/SKILL.md) | 关键工具缺失时报给人装，不降级跳过 |
+| [class-design-review/](class-design-review/SKILL.md) | 类/结构体设计判定面：不变式承载、声明序、锁跨度、抽象、Rule of Zero |
+| [api-design-review/](api-design-review/SKILL.md) | 公共 API 判定面：安装面闭包、类型精度、错误模型、ABI 扩展、误用成本 |
 
 路由数据源：[router/catalog.json](router/catalog.json)，由 `python3 scaffold/skill-lint.py --write` 从各 `SKILL.md` 的 frontmatter 生成，**不要手改**。
 

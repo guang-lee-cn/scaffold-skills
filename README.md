@@ -37,10 +37,12 @@ scaffold-skills/
 │   ├── sop/collaboration-flow.md       # 执行形态 + 两层门禁 + 缺陷/偏离 + 项目结束复审
 │   ├── templates/                  # 开发状态 / 问题台账 / 偏离记录 / 外部案例库 / QA 报告 / Dev 交接 / 复盘
 │   └── skills/                     # skill 写作原则（供项目侧 skills/ 引用）
-└── skills/                         # 技能库（唯一源，12 个技能）
+└── skills/                         # 技能库（唯一源，15 个技能；项目按 `skills.conf` 选择性装载）
     ├── router/                     # 派发调度：阶段→技能、派发包五样、角色→必备技能
     ├── iso/                        # I/S/O 三阶段，重工程与轻原型两轨
     ├── ai-code-review/             # 多角色代码审查流水线
+    ├── api-design-review/          # 接口/API 设计判定面
+    ├── class-design-review/        # 类设计判定面
     ├── review/incident-review/     # 事故复盘纪律
     ├── architecture-support-brief/ # 评审答辩包
     ├── report/                     # 研究报告呈现层
