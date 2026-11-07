@@ -76,4 +76,5 @@ description: 技术调研执行层：8 大思考接口、完整研究流程、�
 | 完整流程 / 研究计划 / 应用示例 | `references/workflow.md` |
 | 研究产出的章节骨架 | `references/output-template.md` |
 | Mermaid 跨平台渲染规范 | `references/mermaid.md` |
+| 证据三表（数据源 / 证据 / 数字） | `references/three-tables.md` |
 | 结论如何组织成正式报告 | `skills/report/`（另一技能） |
