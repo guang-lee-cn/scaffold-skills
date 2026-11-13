@@ -6,7 +6,9 @@
     python3 scaffold/skill-lint.py --write   # 重新生成 skills/router/catalog.json
 
 检查项：
-    1. frontmatter：--- 包裹，含 name / description，description 单行且含「触发词：」
+    1. frontmatter：--- 包裹，含 name / description，description 单行且含「触发词：」；
+       description 含步骤序列词（先…再… / 然后 / 第一步 / 接下来）→ 警告——疑似流程摘要，
+       只写何时用（skill-writing-principles.md §3；裸 → 不告，iso 阶段命名链即误伤样本）
     2. catalog ↔ 目录一致：每个含 SKILL.md 的目录都在 catalog 里，反之亦然
     3. 相对链接可解析（skills/ 与 scaffold/ 一起查）
     4. 内容完全相同的重复文件（警告）
@@ -26,6 +28,9 @@ SKILLS = os.path.join(REPO, "skills")
 SCAFFOLD = os.path.join(REPO, "scaffold")
 CATALOG = os.path.join(SKILLS, "router", "catalog.json")
 SKIP_DIRS = {".git", "node_modules", "vendor"}
+
+# 步骤序列词：命中即疑似流程摘要（裸 → 不算——阶段命名链是合法用法）
+SEQ_RE = re.compile(r"先.{0,20}再|然后|第一步|接下来")
 
 
 def walk(root):
@@ -122,6 +127,8 @@ def check_frontmatter():
             warns.append(f"{rel(p)}: description 无触发词，只能按名调用")
         if len(desc) > 400:
             warns.append(f"{rel(p)}: description {len(desc)} 字，占用上下文偏多")
+        if SEQ_RE.search(desc):
+            warns.append(f"{rel(p)}: description 含步骤序列词，疑似流程摘要——只写何时用")
     return errs, warns
 
 
