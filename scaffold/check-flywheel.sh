@@ -5,7 +5,7 @@
 # 判据：错误 = 飞轮这轮没转（下一轮脚手架不会变好）；待办 = 有零命中规则等着退役
 # 退出码：0 无错误；2 有错误；1 参数错误
 set -uo pipefail
-PROJECT=""; BATCH=""; GATE_BATCHES=0
+PROJECT=""; BATCH=""; GATE_BATCHES=0; SELFTEST=0
 usage() { sed -n '2,6p' "$0" | sed 's/^# \{0,1\}//'; }
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -14,10 +14,31 @@ while [ $# -gt 0 ]; do
     -b|--batch)   [ $# -ge 2 ] || { usage >&2; exit 1; }
                   BATCH="$2"; shift 2 ;;
     --gate-batches) GATE_BATCHES=1; shift ;;
+    --selftest)   SELFTEST=1; shift ;;
     -h|--help)    usage; exit 0 ;;
     *) echo "未知参数: $1" >&2; exit 1 ;;
   esac
 done
+
+# ── 负样本自检：本文件自己必须能红 ─────────────────────────────────────────────
+# 为什么需要：飞轮真正危险的坏法不是崩溃，而是**永远 exit 0**——那和没有检查等价。
+# 2026-11 实测过一次：复盘路径基准写错，脚本连续数周只报「路径不存在」，
+# 内容判据（规则命中表 / 批次指标）从未生效，而没人发现，因为它"从不报错"。
+if [ "$SELFTEST" -eq 1 ]; then
+  T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
+  mkdir -p "$T/docs/开发交付/2026-01-01"
+  printf '## 批次\n\n| 批次 | 范围 | 开始 | 状态 | 复盘 |\n|---|---|---|---|---|\n| 假批 | 负样本 | 2026-01-01 | 已关闭 | — |\n' \
+    > "$T/docs/开发交付/进度.md"
+  bash "$0" --project "$T" >/dev/null 2>&1
+  rc=$?
+  if [ "$rc" -ne 2 ]; then
+    echo "[自检失败] 负样本（已关闭批次无复盘）应判红 exit 2，实得 $rc —— 判据已失效" >&2
+    exit 1
+  fi
+  echo "[自检通过] 负样本按预期判红（exit 2）"
+  exit 0
+fi
+
 [ -n "$PROJECT" ] || { echo "缺 --project <项目根>" >&2; exit 1; }
 PROJECT="$(cd "$PROJECT" && pwd)" || exit 1
 
@@ -199,6 +220,28 @@ else
     [ -n "$undisposed" ] && bad "回流候选有未裁决行：$(printf '%s' "$undisposed" | tr '\n' ' ')"
   else
     todo "回流候选还没有任何 R-xx 行——本项目至今没往回灌过东西？确认后在这一批写明"
+  fi
+fi
+
+# 4. 出卡：卡是判据与边界的唯一载体；有交付目录却没有卡，等于这批没有验收面
+# 基线日期前的批次不追溯——否则规则一上线就把历史台账全刷红，人会直接关掉它。
+#
+# 目录判定要查两处：项目的交付正文常不在 $DOCS 下（例如正文在 docs/rpc-architecture/开发交付/，
+# 而 $DOCS 是 docs/开发交付/）。只查 $BATCH 会在正文外置的项目上永远找不到卡 —— 假红。
+# 两处都没有该日期目录 = 这批没有交付物，不判。
+CARD_BASE="${FLYWHEEL_CARD_BASE:-2026-11-13}"
+bdate="$(basename "$BATCH")"
+if [[ "$bdate" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] && [[ ! "$bdate" < "$CARD_BASE" ]]; then
+  found_dir=0; found_card=0
+  for cand in "$BATCH" "$PROJECT/docs/rpc-architecture/开发交付/$bdate"; do
+    [ -d "$cand" ] || continue
+    found_dir=1
+    if [ -n "$(find "$cand" -maxdepth 2 -name '卡.md' 2>/dev/null | head -1)" ]; then
+      found_card=1; break
+    fi
+  done
+  if [ "$found_dir" -eq 1 ] && [ "$found_card" -eq 0 ]; then
+    bad "$bdate/ 有交付目录但没有 卡.md：没卡就没有判据与边界，规则无处携带（模板 templates/task-card.tpl）"
   fi
 fi
 

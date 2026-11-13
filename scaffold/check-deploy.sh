@@ -392,6 +392,12 @@ fi
 # 10. 两个飞轮闸门：批次表 + 提交信息钩子。缺了它们，复盘与提交规范都只剩文档
 [ -f "$PROJECT/quality/check-flywheel.sh" ] \
   || bad "缺 quality/check-flywheel.sh：run_gate 的批次前置会静默跳过，飞轮退回靠记性"
+# 存在还不够：判据本身可能已经失效（实测过——路径基准写错后连续数周只报「路径不存在」，
+# 内容判据从未生效，因为脚本「从不报错」）。用负样本自检确认它还能红。
+if [ -f "$PROJECT/quality/check-flywheel.sh" ]; then
+  bash "$PROJECT/quality/check-flywheel.sh" --selftest >/dev/null 2>&1 \
+    || bad "quality/check-flywheel.sh --selftest 未通过：判据可能已失效（永远 exit 0 等于没有检查）"
+fi
 [ -f "$PROJECT/quality/commit-lint.sh" ] \
   || warn "缺 quality/commit-lint.sh：提交信息规范没有执行路径"
 if git -C "$PROJECT" rev-parse --git-dir >/dev/null 2>&1; then
