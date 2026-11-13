@@ -1,0 +1,32 @@
+# 模板部署清单（唯一权威）
+#
+# 格式：<源文件>|<项目内目标路径>|<模式>
+#   模式 put          原样复制
+#   模式 gen:project  复制并把 __PROJECT__ 换成项目名
+#   模式 gen:claude   复制并替换 __PROJECT__ 与 __SCAFFOLD_ROOT__
+#
+# 约束（check-assets.sh 校验）：
+#   1. templates/ 下每个 *.tpl 都必须在本清单出现，漏登记即报错；
+#   2. 每个源文件必须存在；
+#   3. 目标路径不得重复。
+# 新增模板时先加一行，再跑 check-assets.sh --selftest。
+
+CLAUDE.md.tpl|CLAUDE.md|gen:claude
+progress.md.tpl|docs/开发交付/进度.md|gen:project
+issue-ledger.md.tpl|docs/开发交付/问题台账.md|put
+deviation-log.md.tpl|docs/开发交付/偏离记录.md|put
+dev-status.md.tpl|docs/开发交付/开发状态.md|put
+feedback-candidates.md.tpl|docs/开发交付/回流候选.md|gen:project
+external-case-library.md.tpl|docs/开发交付/外部案例库.md|put
+role-dev.tpl|docs/开发交付/角色规范/Dev.md|put
+role-qa.tpl|docs/开发交付/角色规范/QA.md|put
+task-card.tpl|docs/开发交付/模板/任务卡.md|put
+thread.md.tpl|docs/开发交付/模板/卡线程.md|put
+qa-review-report.tpl|docs/开发交付/模板/QA评审报告.md|put
+dev-handoff.tpl|docs/开发交付/模板/Dev交接.md|put
+retrospective.tpl|docs/开发交付/模板/复盘报告.md|put
+architect-weekly-summary.tpl|docs/开发交付/模板/架构师周总结.md|put
+design-review-report.tpl|docs/开发交付/模板/方案评审报告.md|put
+perf-measurement.md.tpl|docs/开发交付/模板/性能测量.md|put
+skills.conf.tpl|skills/skills.conf|put
+deps.conf.tpl|quality/deps.conf|put

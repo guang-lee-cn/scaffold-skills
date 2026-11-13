@@ -201,7 +201,7 @@ def check_zero_ref():
         targets += [p for p in walk(os.path.join(SCAFFOLD, sub)) if p.endswith((".md", ".tpl"))]
     corpus = {}
     for path in walk(REPO):
-        if path.endswith((".md", ".tpl", ".sh", ".py", ".json")):
+        if path.endswith((".md", ".tpl", ".sh", ".py", ".json", ".manifest")):
             with open(path, encoding="utf-8", errors="ignore") as fh:
                 corpus[path] = fh.read()
     for t in targets:

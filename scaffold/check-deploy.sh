@@ -381,6 +381,25 @@ if [ -d "$ADIR" ] && [ -n "$(ls -A "$ADIR" 2>/dev/null)" ]; then
   fi
 fi
 
+# 8d. 模板部署一致性。清单是唯一权威：新项目漏了模板，格式就退回靠记忆维持。
+# 实测过一次：两个模板被策略引用、却从没进过 bootstrap 的 put 列表——引用检查干净，
+# 部署面缺失。判据只看「清单声明的目标在不在」，不看项目是否真的用了它。
+MANIFEST="$SCAFFOLD/templates/templates.manifest"
+if [ -f "$MANIFEST" ]; then
+  n_tpl=0
+  while IFS='|' read -r t_src t_dst t_mode || [ -n "$t_src" ]; do
+    t_src="$(printf '%s' "$t_src" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+    t_dst="$(printf '%s' "$t_dst" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+    case "$t_src" in ''|'#'*) continue ;; esac
+    n_tpl=$((n_tpl+1))
+    [ -f "$SCAFFOLD/templates/$t_src" ] \
+      || bad "模板清单的源不存在：templates/$t_src（脚手架自身损坏）"
+    [ -f "$PROJECT/$t_dst" ] \
+      || bad "缺 $t_dst（模板清单要求；从 $SCAFFOLD/templates/$t_src 补齐或重跑 bootstrap）"
+  done < "$MANIFEST"
+  [ "$n_tpl" -gt 0 ] || bad "模板清单为空：$MANIFEST"
+fi
+
 # 9. 证据链前置：没有仓库 / 没有 commit，run_gate 的 commit 永远为空，一条证据也攒不下
 if ! git -C "$PROJECT" rev-parse --git-dir >/dev/null 2>&1; then
   warn "不是 git 仓库：门禁 run 拿不到 commit，只能当调试记录（git init -b main 后做首次提交）"

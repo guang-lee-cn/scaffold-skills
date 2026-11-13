@@ -5,11 +5,12 @@
 ## 组成
 | 块 | 内容 |
 |---|---|
-| bootstrap.sh | 一键布设（幂等：已存在的项目文件一律保留，`--force` 才覆盖） |
-| check-deploy.sh | 布设自检：入口文件 / 索引断链 / 占位未填 / 门禁未配 / 技能未装 / 角色定义未装 / 工作树无技能 |
+| bootstrap.sh | 一键布设（幂等：已存在的项目文件一律保留，`--force` 才覆盖；活台账另有 `--force-ledgers` 才重置） |
+| check-deploy.sh | 布设自检：入口文件 / 索引断链 / 占位未填 / 门禁未配 / 模板缺失 / 技能未装 / 角色定义未装 / 工作树无技能 |
+| check-assets.sh | 模板清单自检：templates 下每个 `*.tpl` 都已登记、源存在、目标不重复；`--selftest` 真跑一次 bootstrap 断言逐条落盘 |
 | quality/ | run_gate.sh.tpl（采集环，落 git.dirty 判定证据级）+ gates.conf（门禁命令）+ deps.conf（工具依赖清单，可选）+ aggregate_quality.py（分析环 → trend.md） |
 | sop/ | 协作流程通用版（执行形态 + 两层门禁 + push 前置条件 + 缺陷/偏离 + 项目结束复审） |
-| templates/ | CLAUDE.md（AI 入口）/ 回流候选 / 开发状态 / 问题台账 / 偏离记录 / 外部案例库 / 周总结 / QA报告 / Dev交接 / 复盘 / 任务卡 / 角色规范 |
+| templates/ | CLAUDE.md（AI 入口）/ 回流候选 / 开发状态 / 问题台账 / 偏离记录 / 外部案例库 / 周总结 / QA报告 / Dev交接 / 复盘 / 任务卡 / 方案评审 / 性能测量 / 角色规范；`templates.manifest` 是部署清单唯一权威 |
 | policies/ | 门禁口径唯一（防假绿）/ 泄漏归属判定 / git 规范 / 方案评审门禁 / 调研先行 / token 纪律 / 约束与判据 |
 | review/ | **回流入口**：每个项目结束时一份 `<日期>-<项目>-<主题>.md`，是 scaffold 增删的唯一依据 |
 | skills/ | 技能写作原则；安装由 `install-skills.sh` 统一执行 |
@@ -51,7 +52,7 @@ skills/skills.conf               ← 技能清单（唯一权威）
 
 **成功判据（三条全中才算布设完成）**：
 
-1. `bash scaffold/check-deploy.sh --project <根>` 输出「错误 0」；
+1. `bash scaffold/check-deploy.sh --project <根>` 输出「错误 0」，且 `bash scaffold/check-assets.sh --selftest` 退出 0；
 2. `pj-config.md` 与 `quality/gates.conf` 没有未填的 `<占位>`；
 3. 至少一个 `quality/runs/<日期>/<run-id>/summary.json` 是 `PASS` 且 `git.dirty == 0`。
 

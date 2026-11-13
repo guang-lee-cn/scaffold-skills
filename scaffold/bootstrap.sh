@@ -1,24 +1,26 @@
 #!/bin/bash
 # Scaffold 一键部署：骨架 + 占位 + 技能装载 + 自检
-# 用法：bash bootstrap.sh <项目名> [目标目录] [--force] [--no-skills] [--no-git]
+# 用法：bash bootstrap.sh <项目名> [目标目录] [--force] [--force-ledgers] [--no-skills] [--no-git]
 # 原则：公共流程与规范不在项目里复制副本，只留一份并在项目里放索引
 # 幂等：已存在的项目文件一律保留（重跑不会覆盖台账/状态/配置）；--force 才用模板覆盖
+# 活台账：进度 / 状态 / 台账 / 偏离 / 回流候选受保护，--force 不覆盖；确需重置加 --force-ledgers
 # 工作区：目标不在任何仓库内时自动 git init -b main（--no-git 跳过）；不代做首次提交
 set -euo pipefail
 SCAFFOLD="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$SCAFFOLD/.." && pwd)"
-NAME=""; DEST=""; FORCE=0; WITH_SKILLS=1; WITH_GIT=1
+NAME=""; DEST=""; FORCE=0; FORCE_LEDGERS=0; WITH_SKILLS=1; WITH_GIT=1
 while [ $# -gt 0 ]; do
   case "$1" in
     --force) FORCE=1; shift ;;
+    --force-ledgers) FORCE=1; FORCE_LEDGERS=1; shift ;;
     --no-skills) WITH_SKILLS=0; shift ;;
     --no-git) WITH_GIT=0; shift ;;
-    -h|--help) sed -n '2,6p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     -*) echo "未知参数: $1" >&2; exit 1 ;;
     *) if [ -z "$NAME" ]; then NAME="$1"; else DEST="$1"; fi; shift ;;
   esac
 done
-[ -n "$NAME" ] || { echo "用法: bash bootstrap.sh <项目名> [目标目录] [--force] [--no-skills] [--no-git]"; exit 1; }
+[ -n "$NAME" ] || { echo "用法: bash bootstrap.sh <项目名> [目标目录] [--force] [--force-ledgers] [--no-skills] [--no-git]"; exit 1; }
 DEST="${DEST:-$PWD/$NAME}"
 mkdir -p "$DEST"
 DEST="$(cd "$DEST" && pwd)"
@@ -38,10 +40,25 @@ if [ "$WITH_GIT" -eq 1 ]; then
 fi
 BRANCH="$(git -C "$DEST" symbolic-ref --short HEAD 2>/dev/null || echo '<branch>')"
 
+is_live_ledger() {  # $1=目标绝对路径；活台账是事实唯一落点，重跑/--force 都不该把它清空
+  case "$1" in
+    "$DEST/docs/开发交付/进度.md"|"$DEST/docs/开发交付/开发状态.md"|\
+    "$DEST/docs/开发交付/问题台账.md"|"$DEST/docs/开发交付/偏离记录.md"|\
+    "$DEST/docs/开发交付/回流候选.md") return 0 ;;
+  esac
+  return 1
+}
+
 put() {  # put <源文件> <目标> [x]
   local src="$1" dst="$2" mode="${3:-}"
-  if [ -e "$dst" ] && [ "$FORCE" -eq 0 ]; then
-    echo "[保留] ${dst#"$DEST"/}"; kept=$((kept+1)); return 0
+  if [ -e "$dst" ]; then
+    if [ "$FORCE" -eq 0 ]; then
+      echo "[保留] ${dst#"$DEST"/}"; kept=$((kept+1)); return 0
+    fi
+    if [ "$FORCE_LEDGERS" -eq 0 ] && is_live_ledger "$dst"; then
+      echo "[保留] ${dst#"$DEST"/}（活台账受保护；确需重置加 --force-ledgers）"
+      kept=$((kept+1)); return 0
+    fi
   fi
   mkdir -p "$(dirname "$dst")"
   cp "$src" "$dst"
@@ -51,8 +68,15 @@ put() {  # put <源文件> <目标> [x]
 
 gen() {  # gen <目标>  —— 内容从 stdin 读；存在即保留（先吃掉 stdin）
   local dst="$1"
-  if [ -e "$dst" ] && [ "$FORCE" -eq 0 ]; then
-    cat >/dev/null; echo "[保留] ${dst#"$DEST"/}"; kept=$((kept+1)); return 0
+  if [ -e "$dst" ]; then
+    if [ "$FORCE" -eq 0 ]; then
+      cat >/dev/null; echo "[保留] ${dst#"$DEST"/}"; kept=$((kept+1)); return 0
+    fi
+    if [ "$FORCE_LEDGERS" -eq 0 ] && is_live_ledger "$dst"; then
+      cat >/dev/null
+      echo "[保留] ${dst#"$DEST"/}（活台账受保护；确需重置加 --force-ledgers）"
+      kept=$((kept+1)); return 0
+    fi
   fi
   mkdir -p "$(dirname "$dst")"
   cat > "$dst"
@@ -63,8 +87,6 @@ gen() {  # gen <目标>  —— 内容从 stdin 读；存在即保留（先吃�
 put "$SCAFFOLD/quality/run_gate.sh.tpl"     "$DEST/quality/run_gate.sh" x
 put "$SCAFFOLD/quality/aggregate_quality.py" "$DEST/quality/aggregate_quality.py" x
 put "$SCAFFOLD/quality/gates.conf.example"  "$DEST/quality/gates.conf"
-# 工具依赖清单：全注释的模板落盘，声明 0 条 = 跳过检查。不声明是合法形态。
-put "$SCAFFOLD/templates/deps.conf.tpl"     "$DEST/quality/deps.conf"
 # 飞轮闸门跟门禁一起落在项目里：run_gate 开跑前要它判批次表，它自己也得能被关批时直接调
 put "$SCAFFOLD/check-flywheel.sh"           "$DEST/quality/check-flywheel.sh" x
 put "$SCAFFOLD/quality/commit-lint.sh"      "$DEST/quality/commit-lint.sh" x
@@ -104,35 +126,26 @@ if grep -q '^脚手架版本:' "$PJ_FILE"; then
     && mv "$PJ_FILE.tmp" "$PJ_FILE"
 fi
 
-# ── 项目技能清单（唯一权威）
-put "$SCAFFOLD/templates/skills.conf.tpl" "$DEST/skills/skills.conf"
-
-# ── 进度 / 台账 / 状态 / 偏离 / 回流候选
-# 进度.md 是「卡片做到哪了」的唯一落点：一屏读完，省掉「现在做到哪」这类提问
-sed -e "s#__PROJECT__#$NAME#g" "$SCAFFOLD/templates/progress.md.tpl" \
-  | gen "$DEST/docs/开发交付/进度.md"
-put "$SCAFFOLD/templates/issue-ledger.md.tpl"   "$DEST/docs/开发交付/问题台账.md"
-put "$SCAFFOLD/templates/deviation-log.md.tpl"   "$DEST/docs/开发交付/偏离记录.md"
-put "$SCAFFOLD/templates/dev-status.md.tpl"   "$DEST/docs/开发交付/开发状态.md"
-sed -e "s#__PROJECT__#$NAME#g" "$SCAFFOLD/templates/feedback-candidates.md.tpl" \
-  | gen "$DEST/docs/开发交付/回流候选.md"
-
-# ── 角色规范骨架：只含职责/边界/红线/自检，编码与流程靠引用
-put "$SCAFFOLD/templates/role-dev.tpl" "$DEST/docs/开发交付/角色规范/Dev.md"
-put "$SCAFFOLD/templates/role-qa.tpl"  "$DEST/docs/开发交付/角色规范/QA.md"
-
-# ── 运作模板（不落盘的项目会自己发明第八种格式）：只给骨架，填不填随项目
-put "$SCAFFOLD/templates/task-card.tpl"       "$DEST/docs/开发交付/模板/任务卡.md"
-put "$SCAFFOLD/templates/thread.md.tpl"    "$DEST/docs/开发交付/模板/卡线程.md"
-put "$SCAFFOLD/templates/qa-review-report.tpl"   "$DEST/docs/开发交付/模板/QA评审报告.md"
-put "$SCAFFOLD/templates/dev-handoff.tpl"      "$DEST/docs/开发交付/模板/Dev交接.md"
-put "$SCAFFOLD/templates/retrospective.tpl"     "$DEST/docs/开发交付/模板/复盘报告.md"
-put "$SCAFFOLD/templates/architect-weekly-summary.tpl" "$DEST/docs/开发交付/模板/架构师周总结.md"
-put "$SCAFFOLD/templates/external-case-library.md.tpl" "$DEST/docs/开发交付/外部案例库.md"
-
-# ── AI 入口：项目根 CLAUDE.md（新 AI 唯一入口，不复制规范正文）
-sed -e "s#__PROJECT__#$NAME#g" -e "s#__SCAFFOLD_ROOT__#$REPO#g" \
-  "$SCAFFOLD/templates/CLAUDE.md.tpl" | gen "$DEST/CLAUDE.md"
+# ── 模板部署（清单唯一权威：新增模板先登记 templates.manifest，再跑 check-assets.sh）
+# 手写 put 列表的代价实测过：两个模板被引用、被写进策略，却从没被部署到任何新项目。
+TPL_MANIFEST="$SCAFFOLD/templates/templates.manifest"
+[ -f "$TPL_MANIFEST" ] || { echo "缺 $TPL_MANIFEST：模板清单是部署唯一权威" >&2; exit 1; }
+while IFS='|' read -r tpl_rel tpl_dest tpl_mode || [ -n "$tpl_rel" ]; do
+  tpl_rel="$(printf '%s' "$tpl_rel" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+  tpl_dest="$(printf '%s' "$tpl_dest" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+  tpl_mode="$(printf '%s' "$tpl_mode" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+  case "$tpl_rel" in ''|'#'*) continue ;; esac
+  tpl_src="$SCAFFOLD/templates/$tpl_rel"
+  [ -f "$tpl_src" ] || { echo "模板清单指向不存在的源：$tpl_rel" >&2; exit 1; }
+  case "$tpl_mode" in
+    put)          put "$tpl_src" "$DEST/$tpl_dest" ;;
+    gen:project)  sed -e "s#__PROJECT__#$NAME#g" "$tpl_src" | gen "$DEST/$tpl_dest" ;;
+    gen:claude)   sed -e "s#__PROJECT__#$NAME#g" -e "s#__SCAFFOLD_ROOT__#$REPO#g" \
+                    "$tpl_src" | gen "$DEST/$tpl_dest" ;;
+    *) echo "模板清单的模式非法：$tpl_rel|$tpl_mode（只认 put / gen:project / gen:claude）" >&2
+       exit 1 ;;
+  esac
+done < "$TPL_MANIFEST"
 
 # ── 流程索引：指向唯一源，不复制正文
 gen "$DEST/docs/开发交付/工程流程.md" <<EOF
@@ -156,6 +169,21 @@ gen "$DEST/docs/开发交付/工程流程.md" <<EOF
 | 角色规范骨架（Dev / QA） | \`$REPO/scaffold/templates/role-dev.tpl\`、\`role-qa.tpl\` |
 | 提交信息格式 | \`$REPO/scaffold/policies/commit-messages.md\` |
 | 技能写作原则 | \`$REPO/scaffold/skills/skill-writing-principles.md\` |
+
+## 事实归属（一条事实只有一个落点）
+
+> 同一条事实写两处，两处迟早不一致；读的人不知道信哪一份。下表是硬约束，不靠记性。
+
+| 事实 | 唯一落点 | 禁止复制到 |
+|---|---|---|
+| 卡片状态与证据 | \`进度.md\` | 开发状态.md、任务卡正文 |
+| 缺陷状态、根因、修复提交 | \`问题台账.md\` | 开发状态.md、进度.md |
+| 决策、裁决、批次叙事 | \`开发状态.md\` | 进度.md、问题台账.md |
+| 与规范不一致的做法 | \`偏离记录.md\` | 开发状态.md |
+| 项目 → 脚手架的候选 | \`回流候选.md\` | 开发状态.md、复盘报告 |
+| 门禁命令与阶段 | \`quality/gates.conf\` | 工程流程.md、pj-config.md |
+
+判据：删掉一份文档，另一份还能不能回答它本来要回答的问题？不能，就是重复。
 
 ## 本项目特有
 
