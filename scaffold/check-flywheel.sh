@@ -26,16 +26,26 @@ done
 # 内容判据（规则命中表 / 批次指标）从未生效，而没人发现，因为它"从不报错"。
 if [ "$SELFTEST" -eq 1 ]; then
   T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
-  mkdir -p "$T/docs/开发交付/2026-01-01"
-  printf '## 批次\n\n| 批次 | 范围 | 开始 | 状态 | 复盘 |\n|---|---|---|---|---|\n| 假批 | 负样本 | 2026-01-01 | 已关闭 | — |\n' \
-    > "$T/docs/开发交付/进度.md"
-  bash "$0" --project "$T" >/dev/null 2>&1
-  rc=$?
+  HDR='## 批次\n\n| 批次 | 范围 | 开始 | 状态 | 复盘 |\n|---|---|---|---|---|\n'
+  # 负样本 1：最后一批已关闭，复盘列为空
+  mkdir -p "$T/a/docs/开发交付/2026-01-01"
+  printf "$HDR| 假批 | 负样本 | 2026-01-01 | 已关闭 | — |\n" \
+    > "$T/a/docs/开发交付/进度.md"
+  FLYWHEEL_RETRO_BASE=2026-01-01 bash "$0" --project "$T/a" >/dev/null 2>&1; rc=$?
   if [ "$rc" -ne 2 ]; then
-    echo "[自检失败] 负样本（已关闭批次无复盘）应判红 exit 2，实得 $rc —— 判据已失效" >&2
+    echo "[自检失败] 负样本 1（最后一批已关闭无复盘）应判红 exit 2，实得 $rc —— 判据已失效" >&2
     exit 1
   fi
-  echo "[自检通过] 负样本按预期判红（exit 2）"
+  # 负样本 2：更早的已关闭批次复盘路径不存在，最后一批进行中
+  mkdir -p "$T/b/docs/开发交付/2026-01-01" "$T/b/docs/开发交付/2026-01-02"
+  printf "$HDR| 假批1 | 负样本 | 2026-01-01 | 已关闭 | 不存在.md |\n| 假批2 | 负样本 | 2026-01-02 | 进行中 | — |\n" \
+    > "$T/b/docs/开发交付/进度.md"
+  FLYWHEEL_RETRO_BASE=2026-01-01 bash "$0" --project "$T/b" >/dev/null 2>&1; rc=$?
+  if [ "$rc" -ne 2 ]; then
+    echo "[自检失败] 负样本 2（历史已关闭批次复盘路径不存在）应判红 exit 2，实得 $rc —— 判据已失效" >&2
+    exit 1
+  fi
+  echo "[自检通过] 两个负样本均判红（最后一批缺复盘 / 历史批次复盘路径不存在）"
   exit 0
 fi
 
@@ -154,6 +164,48 @@ if [ -f "$PROG" ]; then
     # 空着就会在关批那一刻才发现无凭可依，所以在待复盘阶段就要它。
     bad "最后一批已标「待复盘」，但复盘列没有报告路径——待复盘到已关闭之间唯一要做的事就是填它"
     report_error=1
+  fi
+
+  # 1b. 更早的已关闭批次：复盘路径同样必须可达。
+  # 只查最后一行时，历史报告被删、目录被改名都不会红——关批不是一次性动作，
+  # 批次表是历史账本，账本里每一条都要能回查。
+  # 基线日期前的批次不追溯：规则上线前没有要求的报告，不能事后判红。
+  RETRO_BASE="${FLYWHEEL_RETRO_BASE:-2026-11-13}"
+  all_rows="$(awk -F'|' '
+    /^## 批次/ {f=1; next}
+    /^## /     {f=0}
+    f && /^\|/ && $0 !~ /^\|[-|[:space:]]+\|$/ && $2 !~ /批次/ {
+      b=$2; s=$5; r=$6
+      gsub(/^[ \t]+|[ \t]+$/, "", b); gsub(/^[ \t]+|[ \t]+$/, "", s)
+      gsub(/^[ \t]+|[ \t]+$/, "", r)
+      print b "\t" s "\t" r
+    }' "$PROG")"
+  if [ -n "$all_rows" ]; then
+    total="$(printf '%s\n' "$all_rows" | grep -c '' || true)"
+    i=0
+    while IFS="$(printf '\t')" read -r pb ps pr; do
+      i=$((i+1))
+      [ "$i" -lt "$total" ] || continue
+      [ "$ps" = "已关闭" ] || continue
+      pdate="${pb:0:10}"
+      if [[ "$pdate" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] && [[ "$pdate" < "$RETRO_BASE" ]]; then
+        continue
+      fi
+      prel="$(printf '%s' "$pr" | awk -F'`' 'NF > 1 { print $2; exit }')"
+      if [ -z "$prel" ]; then
+        case "$pr" in
+          ''|—|-|无|无（*|无\(*) prel="" ;;
+          *) prel="$pr" ;;
+        esac
+      fi
+      if [ -z "$prel" ]; then
+        bad "更早的已关闭批次「$pb」没有复盘路径"
+      elif [ ! -f "$DOCS/$prel" ] && [ ! -f "$PROJECT/$prel" ]; then
+        bad "更早的已关闭批次「$pb」的复盘报告不存在：$prel"
+      fi
+    done <<EOF
+$all_rows
+EOF
   fi
 fi
 if [ -z "$last_state" ]; then
